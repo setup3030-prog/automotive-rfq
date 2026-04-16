@@ -35,6 +35,12 @@ export const listQuotes = () => request('/api/v1/quotes/');
 export const getQuote = (id) => request(`/api/v1/quotes/${id}`);
 
 /**
+ * AI competitor price analysis — returns CompetitorAnalysisResponse JSON.
+ */
+export const analyzeCompetitors = (data) =>
+  request('/api/v1/rfq/competitor-analysis', { method: 'POST', body: JSON.stringify(data) });
+
+/**
  * Export PDF quote — returns a Blob (binary PDF).
  * Usage: const blob = await exportPDF(data); triggerDownload(blob, 'quote.pdf');
  */

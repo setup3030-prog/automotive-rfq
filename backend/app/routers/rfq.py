@@ -11,7 +11,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from io import BytesIO
 
-from app.schemas.rfq import RFQInput, RFQAnalysis, PDFExportRequest
+from app.schemas.rfq import RFQInput, RFQAnalysis, PDFExportRequest, CompetitorAnalysisRequest, CompetitorAnalysisResponse
 from app.services.calculation import calculate_costs
 from app.services.pricing import calculate_pricing
 from app.services.risk import calculate_risk
@@ -19,6 +19,7 @@ from app.services.decision import calculate_decision
 from app.services.sensitivity import run_sensitivity_analysis
 from app.services.recommendations import generate_recommendations
 from app.services.pdf_export import generate_quote_pdf
+from app.services.competitor_ai import run_competitor_analysis
 
 router = APIRouter()
 
@@ -87,3 +88,24 @@ def export_pdf(payload: PDFExportRequest) -> StreamingResponse:
         media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+@router.post(
+    "/competitor-analysis",
+    response_model=CompetitorAnalysisResponse,
+    summary="AI competitor price estimation",
+    description=(
+        "Sends technical RFQ parameters to Claude AI, which estimates "
+        "unit selling prices for competitors from DE, CZ, SK, RO using "
+        "typical injection molding benchmark rates per country. "
+        "Requires ANTHROPIC_API_KEY environment variable."
+    ),
+)
+def competitor_analysis(req: CompetitorAnalysisRequest) -> CompetitorAnalysisResponse:
+    try:
+        return run_competitor_analysis(req)
+    except ValueError as exc:
+        # Missing API key
+        raise HTTPException(status_code=503, detail=str(exc))
+    except RuntimeError as exc:
+        raise HTTPException(status_code=500, detail=str(exc))

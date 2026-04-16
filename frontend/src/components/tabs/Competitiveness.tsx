@@ -1,10 +1,12 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useRfq } from '../../context/RfqContext';
 import { InputField } from '../ui/InputField';
 import { SectionHeader } from '../ui/SectionHeader';
 import { StatusBadge } from '../ui/StatusBadge';
 import { fmtPrice, fmtPct, fmtNum } from '../../utils/formatters';
 import { PriceComparisonChart } from '../charts/PriceComparisonChart';
+import { analyzeCompetitors } from '../../api/client';
+import type { CountryEstimate } from '../../api/client';
 
 export function Competitiveness() {
   const { state, computed, dispatch } = useRfq();
@@ -15,6 +17,47 @@ export function Competitiveness() {
   function setComp(payload: Partial<typeof ci>) {
     dispatch({ type: 'SET_COMPETITIVENESS', payload });
   }
+
+  // ── AI Competitor Estimation ──────────────────────────────────
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+  const [aiResult, setAiResult] = useState<{ countries: CountryEstimate[]; summary: string } | null>(null);
+
+  const FLAG: Record<string, string> = { DE: '🇩🇪', CZ: '🇨🇿', SK: '🇸🇰', RO: '🇷🇴' };
+
+  const handleAiEstimate = async () => {
+    setAiLoading(true);
+    setAiError(null);
+    try {
+      const inp = state.input;
+      const result = await analyzeCompetitors({
+        cycle_time_s: inp.cycleTimeActual,
+        cavities: inp.cavities,
+        oee_pct: inp.oee * 100,
+        shot_weight_kg: inp.shotWeight,
+        material_grade: inp.materialGrade,
+        material_price_eur: inp.materialPrice / inp.eurPlnRate,
+        annual_volume: inp.volMid,
+        tool_cost_eur: inp.toolCost / inp.eurPlnRate,
+        eur_rate: inp.eurPlnRate,
+      });
+      setAiResult(result);
+    } catch (err: unknown) {
+      setAiError(err instanceof Error ? err.message : 'AI estimation failed');
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const handleApplyAi = () => {
+    if (!aiResult) return;
+    const inp = state.input;
+    const lows = aiResult.countries.map((c) => c.est_price_low_eur);
+    const highs = aiResult.countries.map((c) => c.est_price_high_eur);
+    const minPrice = Math.min(...lows) * inp.eurPlnRate;
+    const maxPrice = Math.max(...highs) * inp.eurPlnRate;
+    setComp({ competitorPriceLow: parseFloat(minPrice.toFixed(4)), competitorPriceHigh: parseFloat(maxPrice.toFixed(4)) });
+  };
 
   // Pricing Ladder rows
   const ladderRows = [
@@ -38,6 +81,84 @@ export function Competitiveness() {
       <div className="flex items-center gap-3 bg-slate-800/60 rounded-lg p-4">
         <span className="text-sm text-slate-400">Competitive Status:</span>
         <StatusBadge text={comp.competitiveStatus} size="lg" />
+      </div>
+
+      {/* AI Competitor Estimation */}
+      <div className="bg-slate-800/60 rounded-lg p-4 space-y-4">
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div>
+            <SectionHeader title="AI Competitor Estimate" />
+            <p className="text-xs text-slate-400 -mt-2">
+              Claude AI models competitor prices for DE, CZ, SK, RO using benchmark rates and your RFQ parameters.
+            </p>
+          </div>
+          <button
+            onClick={handleAiEstimate}
+            disabled={aiLoading}
+            className="px-4 py-2 bg-indigo-700 hover:bg-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed border border-indigo-500 text-white text-sm rounded-lg font-medium transition-colors"
+          >
+            {aiLoading ? 'Estimating…' : 'Estimate with AI'}
+          </button>
+        </div>
+
+        {aiError && (
+          <div className="bg-red-900/30 border border-red-700 rounded px-3 py-2 text-xs text-red-300">
+            {aiError}
+          </div>
+        )}
+
+        {aiResult && (
+          <div className="space-y-3">
+            {/* Country cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+              {aiResult.countries.map((c) => (
+                <div key={c.code} className="bg-slate-900/60 border border-slate-700 rounded-lg p-3 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xl">{FLAG[c.code] ?? '🏭'}</span>
+                    <span className="font-semibold text-slate-100 text-sm">{c.country}</span>
+                  </div>
+                  <div className="space-y-1 text-xs font-mono">
+                    <div className="flex justify-between text-slate-400">
+                      <span>Machine</span><span>{c.machine_rate_eur} EUR/h</span>
+                    </div>
+                    <div className="flex justify-between text-slate-400">
+                      <span>Labor</span><span>{c.labor_rate_eur} EUR/h</span>
+                    </div>
+                    <div className="flex justify-between text-slate-400">
+                      <span>Est. cost</span><span className="text-slate-300">{c.est_cost_eur.toFixed(4)} EUR</span>
+                    </div>
+                    <div className="flex justify-between border-t border-slate-700 pt-1 mt-1">
+                      <span className="text-slate-300 font-semibold">Price range</span>
+                      <span className="text-blue-300 font-semibold">
+                        {c.est_price_low_eur.toFixed(3)}–{c.est_price_high_eur.toFixed(3)} EUR
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-slate-500">
+                      <span>In {cur}</span>
+                      <span className="text-slate-300">
+                        {fmtPrice(c.est_price_low_eur * state.input.eurPlnRate)}–{fmtPrice(c.est_price_high_eur * state.input.eurPlnRate)}
+                      </span>
+                    </div>
+                  </div>
+                  <p className="text-xs text-slate-400 italic leading-tight">{c.rationale}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Summary + apply */}
+            {aiResult.summary && (
+              <div className="bg-indigo-900/20 border border-indigo-700/40 rounded px-3 py-2 text-xs text-indigo-300">
+                {aiResult.summary}
+              </div>
+            )}
+            <button
+              onClick={handleApplyAi}
+              className="px-3 py-1.5 bg-green-700 hover:bg-green-600 border border-green-600 text-white text-xs rounded font-medium transition-colors"
+            >
+              Apply to Comparison (set LOW / HIGH from AI range)
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Competitor inputs */}

@@ -223,4 +223,43 @@ class PDFExportRequest(BaseModel):
     customer_target_price: Optional[float] = None
 
     # Decision summary
-    decision: str = Field(default="—")
+    decision: str = Field(default="-")
+
+
+# ─────────────────────────────────────────────
+# COMPETITOR ANALYSIS (AI)
+# ─────────────────────────────────────────────
+
+class CompetitorAnalysisRequest(BaseModel):
+    """Technical RFQ parameters sent to AI for competitor price estimation."""
+
+    cycle_time_s: float = Field(gt=0, description="Cycle time per shot (seconds)")
+    cavities: int = Field(ge=1, le=64)
+    oee_pct: float = Field(ge=1, le=99, description="OEE as percentage, e.g. 82.0")
+    shot_weight_kg: float = Field(gt=0, description="Material weight per part (kg)")
+    material_grade: Optional[str] = Field(default=None, max_length=100)
+    material_price_eur: float = Field(gt=0, description="Material price in EUR/kg")
+    annual_volume: int = Field(gt=0)
+    tool_cost_eur: float = Field(ge=0, description="Tooling cost in EUR")
+    eur_rate: float = Field(default=1.0, gt=0, description="Local currency units per 1 EUR")
+
+
+class CountryEstimate(BaseModel):
+    """AI-estimated competitor pricing for one country."""
+
+    country: str
+    code: str                   # ISO-2: DE, CZ, SK, RO
+    machine_rate_eur: float
+    labor_rate_eur: float
+    energy_rate_eur: float
+    est_cost_eur: float
+    est_price_low_eur: float
+    est_price_high_eur: float
+    rationale: str
+
+
+class CompetitorAnalysisResponse(BaseModel):
+    """Response from AI competitor analysis endpoint."""
+
+    countries: List[CountryEstimate]
+    summary: str
