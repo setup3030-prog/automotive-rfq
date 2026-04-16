@@ -176,3 +176,51 @@ class RFQAnalysis(BaseModel):
     recommendations: List[Recommendation]
 
     timestamp: datetime
+
+
+# ─────────────────────────────────────────────
+# PDF EXPORT REQUEST
+# ─────────────────────────────────────────────
+
+class PDFExportRequest(BaseModel):
+    """Payload sent by frontend to generate a PDF quote. Accepts pre-calculated values."""
+
+    # Identification
+    rfq_name: str = Field(default="New RFQ", max_length=200)
+    customer: Optional[str] = None
+    part_number: Optional[str] = None
+    part_description: Optional[str] = None
+    quoting_engineer: Optional[str] = None
+    rfq_date: Optional[str] = None
+    currency: str = "PLN"
+
+    # Key process parameters (for display on PDF)
+    annual_volume: int = Field(gt=0)
+    cycle_time_s: float = Field(gt=0, description="Cycle time in seconds")
+    cavities: int = Field(ge=1)
+    oee_pct: float = Field(ge=0, le=100, description="OEE as percentage, e.g. 82.0")
+    scrap_rate_pct: float = Field(ge=0, le=50, description="Scrap rate as percentage, e.g. 3.5")
+
+    # Pre-calculated cost breakdown (per part, in selected currency)
+    machine_cost: float = Field(ge=0, default=0)
+    material_cost: float = Field(ge=0, default=0)
+    tooling_cost: float = Field(ge=0, default=0)
+    labor_cost: float = Field(ge=0, default=0)
+    energy_cost: float = Field(ge=0, default=0)
+    overhead_cost: float = Field(ge=0, default=0)
+    logistics_packaging: float = Field(ge=0, default=0)
+    total_cost: float = Field(gt=0)
+
+    # Pricing strategy
+    walk_away_price: float = Field(ge=0)
+    target_price_calc: float = Field(ge=0)
+    aggressive_price: float = Field(ge=0)
+    walk_away_margin: float = Field(description="Fraction 0–1")
+    target_margin: float = Field(description="Fraction 0–1")
+    aggressive_margin: float = Field(description="Fraction 0–1")
+
+    # Customer info
+    customer_target_price: Optional[float] = None
+
+    # Decision summary
+    decision: str = Field(default="—")

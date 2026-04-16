@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useRfq } from '../../context/RfqContext';
 import { KpiCard } from '../ui/KpiCard';
 import { StatusBadge } from '../ui/StatusBadge';
@@ -6,6 +6,7 @@ import { SectionHeader } from '../ui/SectionHeader';
 import { CostBreakdownChart } from '../charts/CostBreakdownChart';
 import { PriceComparisonChart } from '../charts/PriceComparisonChart';
 import { fmtPrice, fmtPct, fmtNum } from '../../utils/formatters';
+import { exportPDF } from '../../api/client';
 
 function goNoGoDecision(cm: ReturnType<typeof import('../../calculations/costModel')['calcCostModel']>, targetMargin: number, marginMin: number): { text: string; color: 'red' | 'yellow' | 'green' } {
   const { totalMfgCost } = cm;
@@ -50,6 +51,58 @@ export function Dashboard() {
   // Print handler
   const handlePrint = () => window.print();
 
+  // PDF export handler
+  const [pdfLoading, setPdfLoading] = useState(false);
+  const [pdfError, setPdfError] = useState<string | null>(null);
+
+  const handleExportPDF = async () => {
+    setPdfLoading(true);
+    setPdfError(null);
+    try {
+      const payload = {
+        rfq_name: inp.projectName,
+        customer: inp.customerName,
+        part_number: inp.partNumber,
+        part_description: inp.partDescription,
+        quoting_engineer: inp.quotingEngineer,
+        rfq_date: inp.rfqDate,
+        currency: inp.currency,
+        annual_volume: inp.volMid,
+        cycle_time_s: inp.cycleTimeActual,
+        cavities: inp.cavities,
+        oee_pct: inp.oee * 100,
+        scrap_rate_pct: inp.scrapRate * 100,
+        machine_cost: cm.machine.totalMachineCost,
+        material_cost: cm.material.totalMaterialCost,
+        tooling_cost: cm.tooling.totalToolingCost,
+        labor_cost: cm.labor.totalLaborCost,
+        energy_cost: cm.energy.totalEnergyCost,
+        overhead_cost: cm.overhead.totalOverhead,
+        logistics_packaging: inp.packagingCost + inp.logisticsCost,
+        total_cost: cm.totalMfgCost,
+        walk_away_price: ps.walkAway.price,
+        target_price_calc: ps.target.price,
+        aggressive_price: ps.aggressive.price,
+        walk_away_margin: ps.walkAway.margin,
+        target_margin: ps.target.margin,
+        aggressive_margin: ps.aggressive.margin,
+        customer_target_price: inp.targetPrice || null,
+        decision: decision.text,
+      };
+      const blob = await exportPDF(payload);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `RFQ_${(inp.projectName || 'quote').replace(/\s+/g, '_')}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err: unknown) {
+      setPdfError(err instanceof Error ? err.message : 'PDF export failed');
+    } finally {
+      setPdfLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-6 print:space-y-4">
       {/* Header */}
@@ -60,12 +113,24 @@ export function Dashboard() {
             {inp.customerName} | {inp.projectName} | {inp.partNumber}
           </p>
         </div>
-        <button
-          onClick={handlePrint}
-          className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 border border-slate-600 text-slate-300 text-xs rounded font-medium transition-colors print:hidden"
-        >
-          Print A4
-        </button>
+        <div className="flex gap-2 print:hidden">
+          <button
+            onClick={handlePrint}
+            className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 border border-slate-600 text-slate-300 text-xs rounded font-medium transition-colors"
+          >
+            Print A4
+          </button>
+          <button
+            onClick={handleExportPDF}
+            disabled={pdfLoading}
+            className="px-3 py-1.5 bg-blue-700 hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed border border-blue-600 text-white text-xs rounded font-medium transition-colors"
+          >
+            {pdfLoading ? 'Generating…' : 'Download PDF Quote'}
+          </button>
+        </div>
+        {pdfError && (
+          <div className="w-full text-xs text-red-400 mt-1 print:hidden">{pdfError}</div>
+        )}
       </div>
 
       {/* GO/NO GO Banner */}

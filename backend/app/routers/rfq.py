@@ -8,14 +8,17 @@ POST /api/v1/rfq/calculate
 
 from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import StreamingResponse
+from io import BytesIO
 
-from app.schemas.rfq import RFQInput, RFQAnalysis
+from app.schemas.rfq import RFQInput, RFQAnalysis, PDFExportRequest
 from app.services.calculation import calculate_costs
 from app.services.pricing import calculate_pricing
 from app.services.risk import calculate_risk
 from app.services.decision import calculate_decision
 from app.services.sensitivity import run_sensitivity_analysis
 from app.services.recommendations import generate_recommendations
+from app.services.pdf_export import generate_quote_pdf
 
 router = APIRouter()
 
@@ -59,3 +62,28 @@ def calculate_rfq(inp: RFQInput) -> RFQAnalysis:
         )
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Calculation error: {exc}")
+
+
+@router.post(
+    "/export-pdf",
+    summary="Export RFQ quote as PDF",
+    description=(
+        "Accepts pre-calculated RFQ data from the frontend and returns a "
+        "professional A4 PDF quote document."
+    ),
+    response_class=StreamingResponse,
+)
+def export_pdf(payload: PDFExportRequest) -> StreamingResponse:
+    try:
+        pdf_bytes = generate_quote_pdf(payload.model_dump())
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"PDF generation error: {exc}")
+
+    rfq_slug = (payload.rfq_name or "quote").replace(" ", "_")[:40]
+    filename = f"RFQ_{rfq_slug}.pdf"
+
+    return StreamingResponse(
+        BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
