@@ -11,6 +11,11 @@ from fpdf import FPDF
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
+def _safe(text: str) -> str:
+    """Strip characters outside Latin-1 range (e.g. emoji) so Helvetica doesn't crash."""
+    return text.encode("latin-1", errors="ignore").decode("latin-1")
+
+
 def _f(value: float, decimals: int = 4) -> str:
     """Format a float with thousands separator."""
     return f"{value:,.{decimals}f}"
@@ -139,14 +144,14 @@ def generate_quote_pdf(data: dict) -> bytes:
     # ── 1. RFQ Identity ──────────────────────────────────────────
     _section_header(pdf, "1. RFQ Details")
     _two_col(pdf, [
-        ("RFQ / Project Name",   data.get("rfq_name") or "-"),
-        ("Customer",             data.get("customer") or "-"),
-        ("Part Number",          data.get("part_number") or "-"),
-        ("Part Description",     data.get("part_description") or "-"),
-        ("Quoting Engineer",     data.get("quoting_engineer") or "-"),
-        ("RFQ Date",             data.get("rfq_date") or "-"),
+        ("RFQ / Project Name",   _safe(data.get("rfq_name") or "-")),
+        ("Customer",             _safe(data.get("customer") or "-")),
+        ("Part Number",          _safe(data.get("part_number") or "-")),
+        ("Part Description",     _safe(data.get("part_description") or "-")),
+        ("Quoting Engineer",     _safe(data.get("quoting_engineer") or "-")),
+        ("RFQ Date",             _safe(data.get("rfq_date") or "-")),
         ("Annual Volume (mid)",  f"{data.get('annual_volume', 0):,} pcs"),
-        ("Currency",             cur),
+        ("Currency",             _safe(cur)),
     ])
 
     # ── 2. Process Parameters ────────────────────────────────────
@@ -210,7 +215,7 @@ def generate_quote_pdf(data: dict) -> bytes:
     pdf.ln(4)
 
     # ── 6. Decision ───────────────────────────────────────────────
-    decision = str(data.get("decision", "-"))
+    decision = _safe(str(data.get("decision", "-")))
     upper = decision.upper()
     if "NO GO" in upper or "NO-GO" in upper:
         bg = (170, 25, 25)
