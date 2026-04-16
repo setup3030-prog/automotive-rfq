@@ -187,9 +187,9 @@ export function Dashboard() {
         />
         <KpiCard
           label="Break-Even Volume"
-          value={`${fmtNum(ps.target.breakEvenVolume, 0)} pcs`}
+          value={`${fmtNum(ps.walkAway.breakEvenVolume, 0)} pcs`}
           sub={`vs Mid Vol: ${fmtNum(inp.volMid, 0)} pcs`}
-          highlight={ps.target.breakEvenVolume < inp.volMid ? 'green' : 'red'}
+          highlight={ps.walkAway.breakEvenVolume < inp.volMid ? 'green' : 'red'}
         />
       </div>
 

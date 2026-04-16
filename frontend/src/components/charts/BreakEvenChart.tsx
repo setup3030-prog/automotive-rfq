@@ -33,7 +33,7 @@ export function BreakEvenChart({ cost, prices, inp, currency }: Props) {
     };
   });
 
-  const bev = prices.target.breakEvenVolume;
+  const bev = prices.walkAway.breakEvenVolume;
 
   const fmt = (v: number) => v >= 1_000_000
     ? `${(v / 1_000_000).toFixed(1)}M`
