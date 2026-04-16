@@ -81,7 +81,7 @@ export function BreakEvenChart({ cost, prices, inp, currency }: Props) {
         />
         {bev > 0 && (
           <ReferenceLine
-            x={Math.round(bev / step) * step + volMin}
+            x={bev}
             stroke="#94a3b8"
             strokeDasharray="4 4"
             label={{ value: `BEV ${fmt(bev)}`, fill: '#94a3b8', fontSize: 10, position: 'insideTopRight' }}
