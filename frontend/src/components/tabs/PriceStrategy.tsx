@@ -4,6 +4,7 @@ import { InputField } from '../ui/InputField';
 import { SectionHeader } from '../ui/SectionHeader';
 import { StatusBadge } from '../ui/StatusBadge';
 import { fmtPrice, fmtPct, fmtNum } from '../../utils/formatters';
+import { BreakEvenChart } from '../charts/BreakEvenChart';
 
 export function PriceStrategy() {
   const { state, computed, dispatch } = useRfq();
@@ -112,6 +113,12 @@ export function PriceStrategy() {
             </tbody>
           </table>
         </div>
+      </div>
+
+      {/* Break-even chart */}
+      <div className="bg-slate-800/60 rounded-lg p-4">
+        <SectionHeader title="Break-Even Analysis" />
+        <BreakEvenChart cost={cm} prices={ps} inp={state.input} currency={cur} />
       </div>
 
       {/* Reference row */}

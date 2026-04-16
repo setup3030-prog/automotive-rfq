@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { RfqProvider, useRfq } from './context/RfqContext';
 import { fmtPrice } from './utils/formatters';
 import { Dashboard } from './components/tabs/Dashboard';
@@ -9,6 +9,7 @@ import { Competitiveness } from './components/tabs/Competitiveness';
 import { NegotiationSupport } from './components/tabs/NegotiationSupport';
 import { Scenarios } from './components/tabs/Scenarios';
 import { Sensitivity } from './components/tabs/Sensitivity';
+import { QuoteHistory } from './components/ui/QuoteHistory';
 import type { TabId } from './types/rfq';
 
 const TABS: { id: TabId; label: string; short: string }[] = [
@@ -38,12 +39,14 @@ function TabContent({ active }: { active: TabId }) {
 function AppShell() {
   const { state, dispatch, computed } = useRfq();
   const active = state.activeTab;
+  const [showHistory, setShowHistory] = useState(false);
   const inp = state.input;
   const cm = computed.costModel;
   const ps = computed.priceStrategy;
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
+      {showHistory && <QuoteHistory onClose={() => setShowHistory(false)} />}
       {/* Top header */}
       <header className="bg-slate-900 border-b border-slate-800 px-4 py-3 flex items-center justify-between gap-4 flex-wrap print:hidden">
         <div className="flex items-center gap-3">
@@ -52,6 +55,14 @@ function AppShell() {
             <div className="text-sm font-semibold text-slate-100">Injection Molding Quoting Tool</div>
             <div className="text-xs text-slate-400">{inp.customerName} · {inp.partNumber}</div>
           </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setShowHistory(true)}
+            className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 border border-slate-600 text-slate-300 text-xs rounded font-medium transition-colors"
+          >
+            Historia wycen
+          </button>
         </div>
         <div className="flex items-center gap-4 text-xs font-mono">
           <div className="flex items-center gap-1.5">

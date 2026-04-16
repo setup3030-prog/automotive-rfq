@@ -3,6 +3,7 @@ import { useRfq } from '../../context/RfqContext';
 import { SectionHeader } from '../ui/SectionHeader';
 import { fmtPrice, fmtPct, fmtNum, fmtVol } from '../../utils/formatters';
 import { CostBreakdownChart } from '../charts/CostBreakdownChart';
+import { WaterfallChart } from '../charts/WaterfallChart';
 
 interface RowProps { label: string; value: number; pct: number; annual: number; currency: string; highlight?: boolean }
 function CostRow({ label, value, pct, annual, currency, highlight }: RowProps) {
@@ -98,6 +99,12 @@ export function CostModel() {
           <SectionHeader title="Cost Breakdown" />
           <CostBreakdownChart cost={c} currency={cur} />
         </div>
+      </div>
+
+      {/* Waterfall */}
+      <div className="bg-slate-800/60 rounded-lg p-4">
+        <SectionHeader title="Cost Build-Up (Waterfall)" />
+        <WaterfallChart cost={c} packLog={state.input.packagingCost + state.input.logisticsCost} currency={cur} />
       </div>
 
       {/* Detail sections */}

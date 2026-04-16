@@ -1,7 +1,11 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { useRfq } from '../../context/RfqContext';
 import { InputField, SelectField } from '../ui/InputField';
 import { SectionHeader } from '../ui/SectionHeader';
+import { LogisticsCalculator } from '../ui/LogisticsCalculator';
+import { MachineCalculator } from '../ui/MachineCalculator';
+import { EnergyLaborCalculator } from '../ui/EnergyLaborCalculator';
+import { OverheadCalculator } from '../ui/OverheadCalculator';
 import { exportJson, importJson } from '../../utils/storage';
 
 function n(v: string): number { return parseFloat(v) || 0; }
@@ -10,6 +14,10 @@ function ni(v: string): number { return parseInt(v, 10) || 0; }
 export function RfqInput() {
   const { state, dispatch } = useRfq();
   const inp = state.input;
+  const [showLogCalc, setShowLogCalc] = useState(false);
+  const [showMachCalc, setShowMachCalc] = useState(false);
+  const [showEnergyCalc, setShowEnergyCalc] = useState(false);
+  const [showOverheadCalc, setShowOverheadCalc] = useState(false);
   const guards = (() => {
     const oeeWarn = inp.oee > 0.90;
     const scrapWarn = inp.scrapRate < 0.02;
@@ -137,8 +145,17 @@ export function RfqInput() {
       </div>
 
       {/* 2.4 Logistics */}
+      {showLogCalc && <LogisticsCalculator onClose={() => setShowLogCalc(false)} />}
       <div className="bg-slate-800/60 rounded-lg p-4">
-        <SectionHeader title="2.4 Logistics & Packaging" />
+        <div className="flex items-center justify-between border-b border-slate-700 pb-2 mb-4">
+          <h2 className="text-sm font-semibold text-slate-200 uppercase tracking-wider">2.4 Logistics & Packaging</h2>
+          <button
+            onClick={() => setShowLogCalc(true)}
+            className="flex items-center gap-1.5 px-3 py-1 bg-blue-700 hover:bg-blue-600 text-white text-xs font-medium rounded transition-colors"
+          >
+            <span>⚡</span> Calculate
+          </button>
+        </div>
         <div className="grid grid-cols-3 gap-4">
           <SelectField
             label="Incoterms"
@@ -156,8 +173,17 @@ export function RfqInput() {
       </div>
 
       {/* 2.5 Machine & Process */}
+      {showMachCalc && <MachineCalculator onClose={() => setShowMachCalc(false)} />}
       <div className="bg-slate-800/60 rounded-lg p-4">
-        <SectionHeader title="2.5 Machine & Process" />
+        <div className="flex items-center justify-between border-b border-slate-700 pb-2 mb-4">
+          <h2 className="text-sm font-semibold text-slate-200 uppercase tracking-wider">2.5 Machine & Process</h2>
+          <button
+            onClick={() => setShowMachCalc(true)}
+            className="flex items-center gap-1.5 px-3 py-1 bg-blue-700 hover:bg-blue-600 text-white text-xs font-medium rounded transition-colors"
+          >
+            <span>⚡</span> Calculate
+          </button>
+        </div>
         <div className="grid grid-cols-3 gap-4">
           <InputField
             label="Cycle Time (Actual)"
@@ -165,6 +191,8 @@ export function RfqInput() {
             onChange={(v) => set({ cycleTimeActual: n(v) })}
             type="number" step="0.5" unit="s"
             tooltip="Always enter the ACTUAL cycle time — not optimistic"
+            error={inp.cycleTimeActual <= 0 ? 'Wymagane > 0' : undefined}
+            warn={inp.cycleTimeActual > 0 && inp.cycleTimeActual < 5 ? 'Bardzo krótki' : undefined}
           />
           <InputField
             label="Cycle Time (Optimized)"
@@ -172,16 +200,26 @@ export function RfqInput() {
             onChange={(v) => set({ cycleTimeOptimized: n(v) })}
             type="number" step="0.5" unit="s"
             tooltip="Potential optimized cycle — warning if >25% better than actual"
+            warn={inp.cycleTimeActual > 0 && inp.cycleTimeOptimized / inp.cycleTimeActual < 0.75 ? '>25% lepszy' : undefined}
           />
-          <InputField label="Cavities" value={inp.cavities} onChange={(v) => set({ cavities: ni(v) })} type="number" unit="cavities" tooltip="Number of mould cavities" />
-          <InputField label="Machine Size" value={inp.machineSize} onChange={(v) => set({ machineSize: ni(v) })} type="number" unit="kN" tooltip="Clamping force in kilonewtons" />
-          <InputField label="Machine Hourly Rate" value={inp.machineHourlyRate} onChange={(v) => set({ machineHourlyRate: n(v) })} type="number" step="0.5" unit="curr/h" />
+          <InputField label="Cavities" value={inp.cavities} onChange={(v) => set({ cavities: ni(v) })} type="number" unit="cavities" tooltip="Number of mould cavities"
+            error={inp.cavities <= 0 ? 'Min 1' : undefined}
+          />
+          <InputField label="Machine Size" value={inp.machineSize} onChange={(v) => set({ machineSize: ni(v) })} type="number" unit="kN" tooltip="Clamping force in kilonewtons"
+            warn={inp.machineSize <= 0 ? 'Brak wartości' : undefined}
+          />
+          <InputField label="Machine Hourly Rate" value={inp.machineHourlyRate} onChange={(v) => set({ machineHourlyRate: n(v) })} type="number" step="0.5" unit="curr/h"
+            error={inp.machineHourlyRate <= 0 ? 'Wymagane > 0' : undefined}
+            warn={inp.machineHourlyRate > 0 && inp.machineHourlyRate < 50 ? 'Podejrzanie niska' : inp.machineHourlyRate > 1000 ? 'Podejrzanie wysoka' : undefined}
+          />
           <InputField
             label="OEE"
             value={inp.oee}
             onChange={(v) => set({ oee: n(v) })}
             type="number" step="0.01" min={0} max={1} unit="0–1"
             tooltip="Overall Equipment Effectiveness. Max 0.90 enforced in model."
+            error={inp.oee <= 0 ? 'Min > 0' : inp.oee > 1 ? 'Max 1.0' : undefined}
+            warn={inp.oee > 0.90 ? 'Obcięte do 0.90' : inp.oee < 0.50 ? 'Bardzo niska' : undefined}
           />
           <InputField
             label="Scrap Rate"
@@ -189,8 +227,11 @@ export function RfqInput() {
             onChange={(v) => set({ scrapRate: n(v) })}
             type="number" step="0.001" min={0} max={1} unit="0–1"
             tooltip="Min 0.02 (2%) enforced in model."
+            warn={inp.scrapRate < 0.02 ? 'Podłoga 2%' : inp.scrapRate > 0.10 ? 'Bardzo wysoki' : undefined}
           />
-          <InputField label="Working Hours/Year" value={inp.workingHoursYear} onChange={(v) => set({ workingHoursYear: ni(v) })} type="number" unit="h/yr" />
+          <InputField label="Working Hours/Year" value={inp.workingHoursYear} onChange={(v) => set({ workingHoursYear: ni(v) })} type="number" unit="h/yr"
+            warn={inp.workingHoursYear > 8760 ? 'Max 8760 h/rok' : inp.workingHoursYear < 1000 ? 'Mało godzin' : undefined}
+          />
         </div>
       </div>
 
@@ -212,8 +253,17 @@ export function RfqInput() {
       </div>
 
       {/* 2.7 Energy & Labor */}
+      {showEnergyCalc && <EnergyLaborCalculator onClose={() => setShowEnergyCalc(false)} />}
       <div className="bg-slate-800/60 rounded-lg p-4">
-        <SectionHeader title="2.7 Energy & Labor" />
+        <div className="flex items-center justify-between border-b border-slate-700 pb-2 mb-4">
+          <h2 className="text-sm font-semibold text-slate-200 uppercase tracking-wider">2.7 Energy & Labor</h2>
+          <button
+            onClick={() => setShowEnergyCalc(true)}
+            className="flex items-center gap-1.5 px-3 py-1 bg-blue-700 hover:bg-blue-600 text-white text-xs font-medium rounded transition-colors"
+          >
+            <span>⚡</span> Calculate
+          </button>
+        </div>
         <div className="grid grid-cols-3 gap-4">
           <InputField label="Machine Consumption" value={inp.machineConsumption} onChange={(v) => set({ machineConsumption: n(v) })} type="number" step="1" unit="kWh/h" />
           <InputField label="Auxiliary Equipment" value={inp.auxiliaryEquipment} onChange={(v) => set({ auxiliaryEquipment: n(v) })} type="number" step="1" unit="kWh/h" />
@@ -248,8 +298,17 @@ export function RfqInput() {
       </div>
 
       {/* 2.9 Overhead */}
+      {showOverheadCalc && <OverheadCalculator onClose={() => setShowOverheadCalc(false)} />}
       <div className="bg-slate-800/60 rounded-lg p-4">
-        <SectionHeader title="2.9 Overhead" />
+        <div className="flex items-center justify-between border-b border-slate-700 pb-2 mb-4">
+          <h2 className="text-sm font-semibold text-slate-200 uppercase tracking-wider">2.9 Overhead</h2>
+          <button
+            onClick={() => setShowOverheadCalc(true)}
+            className="flex items-center gap-1.5 px-3 py-1 bg-blue-700 hover:bg-blue-600 text-white text-xs font-medium rounded transition-colors"
+          >
+            <span>⚡</span> Calculate
+          </button>
+        </div>
         <div className="grid grid-cols-2 gap-4">
           <InputField label="Fixed Overhead/yr" value={inp.fixedOverhead} onChange={(v) => set({ fixedOverhead: n(v) })} type="number" step="1000" unit="curr/machine/yr" />
           <InputField
