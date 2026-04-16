@@ -4,10 +4,22 @@ SQLite for MVP — swap DATABASE_URL for PostgreSQL in production.
 """
 
 import os
+from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, DeclarativeBase
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./rfq_quotes.db")
+# Loads backend/.env when running locally (uvicorn is started from the backend/ dir).
+# No-op when env vars are already set (e.g. Vercel injects them directly).
+load_dotenv()
+
+# On Vercel the working directory is read-only; use /tmp for SQLite.
+# In production set DATABASE_URL to a PostgreSQL connection string (e.g. Neon).
+_default_sqlite = (
+    "sqlite:////tmp/rfq_quotes.db"
+    if os.getenv("VERCEL")
+    else "sqlite:///./rfq_quotes.db"
+)
+DATABASE_URL = os.getenv("DATABASE_URL", _default_sqlite)
 
 # SQLite requires check_same_thread=False for multi-threaded use.
 # PostgreSQL does not need this argument.
