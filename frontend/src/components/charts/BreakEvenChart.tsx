@@ -62,6 +62,9 @@ export function BreakEvenChart({ cost, prices, inp, currency }: Props) {
       <LineChart data={points} margin={{ top: 10, right: 10, left: 10, bottom: 5 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
         <XAxis
+          type="number"
+          domain={[volMin, volMax]}
+          ticks={points.map(p => p.vol)}
           dataKey="vol"
           tick={{ fill: '#94a3b8', fontSize: 10 }}
           axisLine={false}
