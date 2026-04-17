@@ -1,14 +1,26 @@
 import React, { createContext, useContext, useReducer, useEffect, useMemo } from 'react';
-import type { RfqState, RfqInput, PriceStrategyMargins, CompetitivenessInput, ScenariosInput, NegotiationChecklist, TabId } from '../types/rfq';
+import type { RfqState, RfqInput, PriceStrategyMargins, CompetitivenessInput, ScenariosInput, NegotiationChecklist, TabId, YearPnL, YearWC, YearCF, NpvResult, FinancialRiskScenario, FxExposureResult } from '../types/rfq';
 import { calcCostModel } from '../calculations/costModel';
 import { calcPriceStrategy } from '../calculations/priceStrategy';
 import { calcCompetitiveness } from '../calculations/competitiveness';
 import { calcScenarios } from '../calculations/scenarios';
 import { calcSensitivity } from '../calculations/sensitivity';
+import { calcProgramPnL } from '../calculations/programPnL';
+import { calcWorkingCapital } from '../calculations/workingCapital';
+import { calcCashflow } from '../calculations/cashflow';
+import { calcNpv } from '../calculations/npv';
+import { calcFinancialRisk } from '../calculations/financialRisk';
+import { calcFxExposure } from '../calculations/fxExposure';
 import type { CostModelResult, PriceStrategyResult, CompetitivenessResult, ScenarioResult, SensitivityResult } from '../types/rfq';
 import { saveToStorage, loadFromStorage } from '../utils/storage';
 
 // ─── Default Values ───────────────────────────────────────────────────────────
+
+const _sopDefault = (() => {
+  const d = new Date();
+  d.setMonth(d.getMonth() + 6);
+  return d.toISOString().slice(0, 10);
+})();
 
 const DEFAULT_INPUT: RfqInput = {
   currency: 'PLN',
@@ -60,6 +72,32 @@ const DEFAULT_INPUT: RfqInput = {
   toolMaintenanceYear: 0.03,
   fixedOverhead: 85000,
   variableOverheadRate: 0.12,
+
+  // Financial Analysis
+  lifecycleYears: 5,
+  volumeCurve: [60, 100, 100, 90, 70],
+  sopDateIso: _sopDefault,
+  dpoDays: 45,
+  dioDays: 30,
+  wacc: 0.09,
+  hurdleRate: 0.12,
+  toolOwnershipType: 'customer_amortized',
+  toolDepreciationYears: 5,
+  bankGuaranteePct: 0.008,
+  warrantyReservePct: 0.005,
+  ldCapPct: 0.05,
+  fxEurShareCost: 0.4,
+  fxEurShareRevenue: 1.0,
+  fxHedgeRatio: 0.6,
+  fxEurPln: 4.30,
+  escalationMaterial: true,
+  escalationMaterialLagQuarters: 1,
+  escalationEnergy: false,
+  escalationLaborCpi: true,
+  customerRating: 'A',
+  customerInsuredPct: 0.8,
+  corporateOverheadAllocationPct: 0.03,
+  ebitdaAssetBase: 0,
 };
 
 const DEFAULT_MARGINS: PriceStrategyMargins = {
@@ -165,6 +203,12 @@ interface ComputedResults {
   competitiveness: CompetitivenessResult;
   scenarios: ScenarioResult[];
   sensitivity: SensitivityResult;
+  programPnL: YearPnL[];
+  workingCapital: YearWC[];
+  cashflow: YearCF[];
+  npv: NpvResult;
+  financialRisk: FinancialRiskScenario[];
+  fxExposure: FxExposureResult;
 }
 
 // ─── Context ──────────────────────────────────────────────────────────────────
@@ -197,7 +241,13 @@ export function RfqProvider({ children }: { children: React.ReactNode }) {
     const competitiveness = calcCompetitiveness(state.input, state.competitiveness, priceStrategy);
     const scenarios = calcScenarios(state.input, state.scenarios, state.priceMargins);
     const sensitivity = calcSensitivity(state.input);
-    return { costModel, priceStrategy, competitiveness, scenarios, sensitivity };
+    const programPnL = calcProgramPnL(state.input, costModel, priceStrategy);
+    const workingCapital = calcWorkingCapital(programPnL, state.input);
+    const cashflow = calcCashflow(programPnL, workingCapital, state.input);
+    const npv = calcNpv(cashflow, state.input);
+    const financialRisk = calcFinancialRisk(state.input, costModel, priceStrategy);
+    const fxExposure = calcFxExposure(programPnL, state.input);
+    return { costModel, priceStrategy, competitiveness, scenarios, sensitivity, programPnL, workingCapital, cashflow, npv, financialRisk, fxExposure };
   }, [state.input, state.priceMargins, state.competitiveness, state.scenarios]);
 
   return (

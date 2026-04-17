@@ -67,6 +67,32 @@ export interface RfqInput {
   // 2.9 Overhead
   fixedOverhead: number;
   variableOverheadRate: number;
+
+  // 2.10 Financial Analysis (CFO section)
+  lifecycleYears: number;
+  volumeCurve: number[];              // length = lifecycleYears; % of annual base volume
+  sopDateIso: string;                 // ISO date, start of production
+  dpoDays: number;                    // payables days outstanding
+  dioDays: number;                    // inventory days outstanding
+  wacc: number;                       // fraction 0–1
+  hurdleRate: number;                 // fraction 0–1
+  toolOwnershipType: 'customer_paid' | 'customer_amortized' | 'supplier';
+  toolDepreciationYears: number;
+  bankGuaranteePct: number;           // fraction p.a. of tool value
+  warrantyReservePct: number;         // fraction of revenue
+  ldCapPct: number;                   // LD cap fraction of contract value
+  fxEurShareCost: number;             // fraction of costs denominated in EUR
+  fxEurShareRevenue: number;          // fraction of revenue denominated in EUR
+  fxHedgeRatio: number;               // fraction 0–1
+  fxEurPln: number;                   // reference EUR/PLN rate
+  escalationMaterial: boolean;
+  escalationMaterialLagQuarters: number;
+  escalationEnergy: boolean;
+  escalationLaborCpi: boolean;
+  customerRating: 'AAA' | 'AA' | 'A' | 'BBB' | 'BB' | 'B' | 'CCC' | 'UNRATED';
+  customerInsuredPct: number;         // fraction 0–1
+  corporateOverheadAllocationPct: number; // fraction of revenue
+  ebitdaAssetBase: number;            // PLN — production assets allocated to this program
 }
 
 // ─── Price Strategy Margins ───────────────────────────────────────────────────
@@ -141,7 +167,8 @@ export type TabId =
   | 'competitiveness'
   | 'negotiation'
   | 'scenarios'
-  | 'sensitivity';
+  | 'sensitivity'
+  | 'financials';
 
 // ─── Calculated Results ───────────────────────────────────────────────────────
 
@@ -271,4 +298,73 @@ export interface SensitivityResult {
   materialPrice: SensitivityPoint[];
   oee: SensitivityPoint[];
   energyPrice: SensitivityPoint[];
+}
+
+// ─── Financial Analysis Results ───────────────────────────────────────────────
+
+export interface YearPnL {
+  year: number;              // 1-indexed (Year 1 = first production year)
+  volumeUnits: number;
+  revenue: number;
+  cogsMaterial: number;
+  cogsLabor: number;
+  cogsMachine: number;
+  cogsEnergy: number;
+  cogsOverheadDirect: number;
+  cogsToolingAmort: number;
+  grossProfit: number;
+  grossMarginPct: number;
+  corporateOverheadAlloc: number;
+  ebitda: number;
+  depreciation: number;      // tooling NBV depreciation (supplier-owned only)
+  ebit: number;
+  ebitPct: number;
+}
+
+export interface YearWC {
+  year: number;
+  receivables: number;
+  inventory: number;
+  payables: number;
+  netWC: number;
+  deltaWC: number;           // netWC[i] - netWC[i-1]; Year 1 baseline vs 0
+}
+
+export interface YearCF {
+  year: number;
+  ebitda: number;
+  taxPaid: number;
+  deltaWC: number;
+  capex: number;
+  operatingCF: number;
+  freeCF: number;
+  cumulativeFCF: number;
+}
+
+export interface NpvResult {
+  npv: number;
+  irr: number | null;
+  paybackMonths: number | null;
+  discountedPayback: number | null;
+  roceY3: number;
+  meetsHurdle: boolean;
+}
+
+export interface FinancialRiskScenario {
+  name: string;
+  deltaNpv: number;
+  deltaEbitdaY2: number;
+  newIrr: number | null;
+  stillMeetsHurdle: boolean;
+}
+
+export interface FxExposureResult {
+  revenueEur: number;
+  costEur: number;
+  netOpenEur: number;
+  hedgedEur: number;
+  unhedgedEur: number;
+  marginImpactFxPlus10Pp: number;
+  marginImpactFxMinus10Pp: number;
+  naturalHedgePct: number;
 }
