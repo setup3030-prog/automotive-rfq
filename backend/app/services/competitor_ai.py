@@ -121,7 +121,7 @@ def run_competitor_analysis(req: CompetitorAnalysisRequest) -> CompetitorAnalysi
                 contents=prompt,
                 config=genai_types.GenerateContentConfig(
                     temperature=0.2,
-                    max_output_tokens=1024,
+                    max_output_tokens=2048,
                     response_mime_type="application/json",
                 ),
             )
