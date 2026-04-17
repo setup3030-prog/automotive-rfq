@@ -1,5 +1,5 @@
 """
-AI-powered competitor price estimation using Google Gemini API.
+AI-powered competitor price estimation using Google Gemini API (google-genai SDK).
 
 Sends RFQ technical parameters to Gemini, which applies
 typical injection molding benchmark rates per country and returns
@@ -9,6 +9,7 @@ estimated competitor selling prices with rationale.
 from __future__ import annotations
 import json
 import os
+import time
 import logging
 
 from app.schemas.rfq import (
@@ -26,7 +27,7 @@ _DEFAULT_MODEL = "gemini-2.5-flash"
 def _build_prompt(req: CompetitorAnalysisRequest) -> str:
     grade = req.material_grade or "standard thermoplastic"
     tool_note = f"{req.tool_cost_eur:,.0f} EUR" if req.tool_cost_eur else "customer-owned"
-    scrap = getattr(req, "scrap_rate_pct", 3.0)
+    scrap = req.scrap_rate_pct
     return f"""You are an injection molding cost analyst with deep knowledge of European manufacturing costs.
 
 Estimate the unit selling price a manufacturer from each listed country would charge for this part.
@@ -95,30 +96,57 @@ def run_competitor_analysis(req: CompetitorAnalysisRequest) -> CompetitorAnalysi
         )
 
     try:
-        import google.generativeai as genai
+        from google import genai
+        from google.genai import types as genai_types
     except ImportError as exc:
         raise RuntimeError(
-            "google-generativeai package is not installed. "
-            "Run: pip install google-generativeai"
+            "google-genai package is not installed. "
+            "Run: pip install google-genai"
         ) from exc
 
     model_name = os.getenv("GEMINI_MODEL", _DEFAULT_MODEL)
     prompt = _build_prompt(req)
 
-    try:
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel(model_name)
-        response = model.generate_content(
-            prompt,
-            generation_config={
-                "temperature": 0.2,
-                "max_output_tokens": 1024,
-                "response_mime_type": "application/json",
-            },
-        )
-    except Exception as exc:
-        logger.error("Gemini API call failed: %s", exc)
-        raise RuntimeError(f"Gemini API error: {exc}") from exc
+    client = genai.Client(api_key=api_key)
+
+    _RETRYABLE = (IOError, OSError, ConnectionError, TimeoutError)
+    _MAX_RETRIES = 3
+    _BACKOFF = [0.5, 1.0, 2.0]
+
+    response = None
+    for attempt in range(_MAX_RETRIES):
+        try:
+            response = client.models.generate_content(
+                model=model_name,
+                contents=prompt,
+                config=genai_types.GenerateContentConfig(
+                    temperature=0.2,
+                    max_output_tokens=1024,
+                    response_mime_type="application/json",
+                ),
+            )
+            break  # success
+        except Exception as exc:
+            exc_name = type(exc).__name__
+            exc_str = str(exc).lower()
+            # Retry on network / overload errors (503, 429, timeouts)
+            retryable = (
+                isinstance(exc, _RETRYABLE)
+                or "503" in exc_str
+                or "429" in exc_str
+                or "timeout" in exc_str
+                or "overload" in exc_str
+            )
+            if retryable and attempt < _MAX_RETRIES - 1:
+                wait = _BACKOFF[attempt]
+                logger.warning(
+                    "Gemini API attempt %d/%d failed (%s: %s) — retrying in %.1fs",
+                    attempt + 1, _MAX_RETRIES, exc_name, exc, wait,
+                )
+                time.sleep(wait)
+            else:
+                logger.error("Gemini API call failed after %d attempt(s): %s", attempt + 1, exc)
+                raise RuntimeError(f"Gemini API error: {exc}") from exc
 
     try:
         raw = (response.text or "").strip()

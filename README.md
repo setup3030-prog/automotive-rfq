@@ -122,6 +122,27 @@ target     = total_cost / (1 - 0.15)   → 15% margin (open negotiation)
 
 ---
 
+## Environment Variables
+
+Copy `backend/.env.example` to `backend/.env` and fill in the values.
+
+| Variable | Required | Description |
+|---|---|---|
+| `DATABASE_URL` | No | SQLite by default; set PostgreSQL URL for production |
+| `GEMINI_API_KEY` | For AI tab | Google Gemini key — get one free at [aistudio.google.com/apikey](https://aistudio.google.com/apikey) |
+| `GEMINI_MODEL` | No | Override model (default: `gemini-2.5-flash`) |
+| `ALLOWED_ORIGINS` | No | Comma-separated frontend origins for CORS (default: `http://localhost:5173`) |
+
+```bash
+# backend/.env
+DATABASE_URL=sqlite:///./rfq.db
+GEMINI_API_KEY=your_key_here
+```
+
+For Vercel / Railway deployments add the same variables in the dashboard under **Settings → Environment Variables**.
+
+---
+
 ## PostgreSQL Migration
 
 1. Install: `pip install psycopg2-binary`

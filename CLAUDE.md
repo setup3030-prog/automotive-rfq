@@ -93,7 +93,7 @@ See [.claude/docs/architectural_patterns.md](.claude/docs/architectural_patterns
 | `POST` | `/api/v1/rfq/calculate` | Full RFQ analysis (no persistence) |
 | `POST` | `/api/v1/rfq/export-pdf` | Export quote as A4 PDF |
 | `POST` | `/api/v1/rfq/export-cfo-pdf` | Export CFO internal summary PDF |
-| `POST` | `/api/v1/rfq/competitor-analysis` | AI competitor price estimation (Claude) |
+| `POST` | `/api/v1/rfq/competitor-analysis` | AI competitor price estimation (Gemini) |
 | `POST` | `/api/v1/quotes/` | Calculate + save to DB |
 | `GET` | `/api/v1/quotes/` | List saved quotes |
 | `GET/DELETE` | `/api/v1/quotes/{id}` | Single quote |

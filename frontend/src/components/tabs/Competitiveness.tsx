@@ -90,7 +90,7 @@ export function Competitiveness() {
           <div>
             <SectionHeader title="AI Competitor Estimate" />
             <p className="text-xs text-slate-400 -mt-2">
-              Claude AI models competitor prices for DE, CZ, SK, RO using benchmark rates and your RFQ parameters.
+              Gemini AI models competitor prices for DE, CZ, SK, RO using benchmark rates and your RFQ parameters.
             </p>
           </div>
           <button

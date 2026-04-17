@@ -31,9 +31,11 @@ ALLOWED_ORIGINS = (
     [o.strip() for o in _origins_env.split(",") if o.strip()]
     if _origins_env
     else [
-        "http://localhost:5173",
+        "http://localhost:5173",   # Vite dev server
         "http://localhost:3000",
         "http://127.0.0.1:5173",
+        # To add a production domain without redeploying, set ALLOWED_ORIGINS env var:
+        # ALLOWED_ORIGINS=https://your-app.vercel.app,http://localhost:5173
     ]
 )
 
