@@ -19,6 +19,8 @@ const MATERIALS: Record<string, { a: number; tMelt: number; tMold: number; tEjec
 
 const STANDARD_CAVITIES = [1, 2, 4, 6, 8, 12, 16, 24, 32, 48, 64];
 
+const DEFAULT_ANNUAL_HOURS = 6000; // 3-shift 24/6 baseline; overridden by inp.workingHoursYear
+
 function calcCoolingTime(wallMm: number, mat: typeof MATERIALS[string], tMeltOverride?: number, tMoldOverride?: number, tEjectOverride?: number) {
   const s = wallMm / 1000; // m
   const { a } = mat;
@@ -79,7 +81,7 @@ export function MachineCalculator({ onClose }: Props) {
   const [floorArea, setFloorArea]     = useState('25');
   const [floorRent, setFloorRent]     = useState('120');
   const [adminOh, setAdminOh]         = useState('15');
-  const workHours = inp.workingHoursYear || 6000;
+  const workHours = inp.workingHoursYear || DEFAULT_ANNUAL_HOURS;
 
   const dep    = n(machPrice) / (n(deprYears) * workHours);
   const maint  = n(machPrice) * n(maintRate)  / workHours;

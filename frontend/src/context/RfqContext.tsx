@@ -37,7 +37,7 @@ const DEFAULT_INPUT: RfqInput = {
   logisticsCost: 0.025,
   customsDuty: 0,
   cycleTimeActual: 28,
-  cycleTimeOptimized: 1,
+  cycleTimeOptimized: 28,
   cavities: 4,
   machineSize: 250,
   machineHourlyRate: 185,
@@ -63,9 +63,9 @@ const DEFAULT_INPUT: RfqInput = {
 };
 
 const DEFAULT_MARGINS: PriceStrategyMargins = {
-  marginMin: 0.15,
-  marginTarget: 0.20,
-  marginAggressive: 0.22,
+  marginMin: 0.05,        // walk-away floor
+  marginAggressive: 0.09, // competitive bid
+  marginTarget: 0.15,     // opening anchor
 };
 
 const DEFAULT_COMPETITIVENESS: CompetitivenessInput = {
@@ -195,7 +195,7 @@ export function RfqProvider({ children }: { children: React.ReactNode }) {
     const costModel = calcCostModel(state.input);
     const priceStrategy = calcPriceStrategy(state.input, costModel, state.priceMargins);
     const competitiveness = calcCompetitiveness(state.input, state.competitiveness, priceStrategy);
-    const scenarios = calcScenarios(state.input, state.scenarios);
+    const scenarios = calcScenarios(state.input, state.scenarios, state.priceMargins);
     const sensitivity = calcSensitivity(state.input);
     return { costModel, priceStrategy, competitiveness, scenarios, sensitivity };
   }, [state.input, state.priceMargins, state.competitiveness, state.scenarios]);

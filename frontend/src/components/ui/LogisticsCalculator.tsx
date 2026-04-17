@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRfq } from '../../context/RfqContext';
 
 interface Props {
@@ -43,6 +43,11 @@ export function LogisticsCalculator({ onClose }: Props) {
 
   // Road LTL / Air
   const [ratePerKg, setRatePerKg] = useState(mode === 'air' ? '15.00' : '1.20');
+
+  // Reset mode-dependent fields when transport mode changes
+  useEffect(() => {
+    setRatePerKg(mode === 'air' ? '15.00' : '1.20');
+  }, [mode]);
 
   // Sea
   const [containerCost, setContainerCost] = useState('3500');

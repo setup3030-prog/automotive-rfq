@@ -215,11 +215,13 @@ def generate_quote_pdf(data: dict) -> bytes:
     pdf.ln(4)
 
     # ── 6. Decision ───────────────────────────────────────────────
-    decision = _safe(str(data.get("decision", "-")))
-    upper = decision.upper()
-    if "NO GO" in upper or "NO-GO" in upper:
+    # Use the raw (pre-sanitize) string for logic so emoji don't affect branching.
+    decision_raw = str(data.get("decision", "-"))
+    decision = _safe(decision_raw)
+    ctrl = decision_raw.upper().replace(" ", "").replace("-", "")
+    if "NOGO" in ctrl:
         bg = (170, 25, 25)
-    elif "CAUTION" in upper or "RISK" in upper:
+    elif "CAUTION" in ctrl or "RISK" in ctrl:
         bg = (160, 120, 0)
     else:
         bg = (20, 110, 40)

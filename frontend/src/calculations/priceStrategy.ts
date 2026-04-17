@@ -2,21 +2,15 @@ import type { RfqInput, PriceStrategyMargins, PriceStrategyResult, PricePoint } 
 import type { CostModelResult } from '../types/rfq';
 import { safe, safeDiv } from '../utils/formatters';
 
-function riskLabel(price: number, cost: number, margin: number, type: 'walkAway' | 'target' | 'aggressive'): string {
+// Tier semantics: walkAway (min margin) < aggressive < target (highest margin).
+// riskLabel uses margin thresholds only — not tier identity — so any tier with
+// a thin margin correctly shows red regardless of its label.
+function riskLabel(price: number, cost: number, margin: number): string {
   if (price < cost) return '🔴 LOSS — DO NOT QUOTE';
-  if (type === 'walkAway') {
-    if (margin < 0.08) return '🔴 HIGH RISK';
-    return '🔴 HIGH RISK — ABSOLUTE MINIMUM';
-  }
-  if (type === 'target') {
-    if (margin < 0.12) return '🟡 MEDIUM RISK';
-    if (margin < 0.20) return '🟢 LOW RISK';
-    return '🟢 STRONG MARGIN';
-  }
-  // aggressive
-  if (margin < 0.06) return '🔴 HIGH RISK';
+  if (margin < 0.08) return '🔴 HIGH RISK';
   if (margin < 0.12) return '🟡 MEDIUM RISK';
-  return '🟡 MEDIUM — WATCH CAREFULLY';
+  if (margin < 0.20) return '🟢 LOW RISK';
+  return '🟢 STRONG MARGIN';
 }
 
 function goNoGo(price: number, cost: number, margin: number, marginMin: number, customerTarget: number): string {
@@ -31,7 +25,6 @@ function calcPoint(
   cost: number,
   inp: RfqInput,
   marginMin: number,
-  type: 'walkAway' | 'target' | 'aggressive'
 ): PricePoint {
   const margin = safeDiv(price - cost, price);
   const grossMarginPerPart = safe(price - cost);
@@ -45,7 +38,7 @@ function calcPoint(
   return {
     price, margin, grossMarginPerPart, vsCustomerTarget,
     annualRevenue, annualProfit, lifetimeRevenue, breakEvenVolume, financingCost,
-    risk: riskLabel(price, cost, margin, type),
+    risk: riskLabel(price, cost, margin),
     goNoGo: goNoGo(price, cost, margin, marginMin, inp.targetPrice),
   };
 }
@@ -56,13 +49,14 @@ export function calcPriceStrategy(
   margins: PriceStrategyMargins
 ): PriceStrategyResult {
   const c = cost.totalMfgCost;
-  const walkAwayPrice = safeDiv(c, 1 - margins.marginMin);
-  const targetPrice = safeDiv(c, 1 - margins.marginTarget);
+  // walkAway < aggressive < target by both price and margin
+  const walkAwayPrice  = safeDiv(c, 1 - margins.marginMin);
   const aggressivePrice = safeDiv(c, 1 - margins.marginAggressive);
+  const targetPrice    = safeDiv(c, 1 - margins.marginTarget);
 
   return {
-    walkAway: calcPoint(walkAwayPrice, c, inp, margins.marginMin, 'walkAway'),
-    target: calcPoint(targetPrice, c, inp, margins.marginMin, 'target'),
-    aggressive: calcPoint(aggressivePrice, c, inp, margins.marginMin, 'aggressive'),
+    walkAway:  calcPoint(walkAwayPrice,  c, inp, margins.marginMin),
+    aggressive: calcPoint(aggressivePrice, c, inp, margins.marginMin),
+    target:    calcPoint(targetPrice,    c, inp, margins.marginMin),
   };
 }

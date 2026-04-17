@@ -43,7 +43,7 @@ Instructions:
 1. For each country, select realistic mid-range benchmark rates (IM industry, 100-300t machines)
 2. Calculate: parts_per_hour = (3600 / cycle_time) * cavities * (oee/100)
 3. machine_cost = machine_rate / parts_per_hour
-4. material_cost = shot_weight * material_price / (1 - 0.03)  [3% scrap]
+4. material_cost = shot_weight * material_price / (1 - {req.scrap_rate_pct / 100:.4f})  [{req.scrap_rate_pct:.1f}% scrap]
 5. labor_cost = labor_rate / parts_per_hour
 6. energy_cost = energy_rate / parts_per_hour
 7. tool_amort = tool_cost_eur / annual_volume

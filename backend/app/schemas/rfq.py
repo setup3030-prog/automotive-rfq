@@ -242,6 +242,7 @@ class CompetitorAnalysisRequest(BaseModel):
     annual_volume: int = Field(gt=0)
     tool_cost_eur: float = Field(ge=0, description="Tooling cost in EUR")
     eur_rate: float = Field(default=1.0, gt=0, description="Local currency units per 1 EUR")
+    scrap_rate_pct: float = Field(ge=0, le=50, default=3.0, description="Scrap rate as percentage, e.g. 3.5")
 
 
 class CountryEstimate(BaseModel):

@@ -153,28 +153,41 @@ export function NegotiationSupport() {
       {/* Concession Levers */}
       <div className="bg-slate-800/60 rounded-lg overflow-hidden">
         <SectionHeader title="Concession Levers" className="px-4 pt-4 mb-0 pb-3" />
+        <p className="px-4 pb-2 text-xs text-slate-500">Savings = client annual saving (cost reduction for buyer). Margin impact = supplier margin change in percentage points.</p>
         <table className="w-full">
           <thead>
             <tr className="bg-slate-900/50">
               <th className="text-left py-2 px-4 text-xs text-slate-400 font-medium">Lever</th>
               <th className="text-left py-2 px-4 text-xs text-slate-400 font-medium">Concession</th>
               <th className="text-right py-2 px-4 text-xs text-slate-400 font-medium">New Price</th>
-              <th className="text-right py-2 px-4 text-xs text-slate-400 font-medium">Annual Saving</th>
+              <th className="text-right py-2 px-4 text-xs text-slate-400 font-medium">Client annual saving</th>
+              <th className="text-right py-2 px-4 text-xs text-slate-400 font-medium">Your margin impact (pp)</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-700/50">
-            {levers.map((l) => (
-              <tr key={l.lever} className="hover:bg-slate-700/30">
-                <td className="py-2 px-4 text-sm font-medium text-slate-200">{l.lever}</td>
-                <td className="py-2 px-4 text-xs text-slate-400">{l.concession}</td>
-                <td className="py-2 px-4 text-right font-mono text-sm text-yellow-300">
-                  {l.newPrice >= 0 ? `${fmtPrice(l.newPrice)} ${cur}` : 'Conditional'}
-                </td>
-                <td className="py-2 px-4 text-right font-mono text-sm text-green-400">
-                  {l.savings >= 0 ? `${fmtNum(l.savings, 0)} ${cur}` : 'Negotiate'}
-                </td>
-              </tr>
-            ))}
+            {levers.map((l) => {
+              const newMargin = l.newPrice > 0
+                ? (l.newPrice - cm.totalMfgCost) / l.newPrice
+                : null;
+              const marginDeltaPp = newMargin !== null
+                ? (newMargin - ps.target.margin) * 100
+                : null;
+              return (
+                <tr key={l.lever} className="hover:bg-slate-700/30">
+                  <td className="py-2 px-4 text-sm font-medium text-slate-200">{l.lever}</td>
+                  <td className="py-2 px-4 text-xs text-slate-400">{l.concession}</td>
+                  <td className="py-2 px-4 text-right font-mono text-sm text-yellow-300">
+                    {l.newPrice >= 0 ? `${fmtPrice(l.newPrice)} ${cur}` : 'Conditional'}
+                  </td>
+                  <td className="py-2 px-4 text-right font-mono text-sm text-green-400">
+                    {l.savings >= 0 ? `${fmtNum(l.savings, 0)} ${cur}` : 'Negotiate'}
+                  </td>
+                  <td className={`py-2 px-4 text-right font-mono text-sm ${marginDeltaPp !== null ? (marginDeltaPp < -3 ? 'text-red-400' : 'text-orange-300') : 'text-slate-500'}`}>
+                    {marginDeltaPp !== null ? `${marginDeltaPp >= 0 ? '+' : ''}${marginDeltaPp.toFixed(1)} pp` : '—'}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

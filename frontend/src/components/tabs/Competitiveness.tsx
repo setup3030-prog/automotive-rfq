@@ -40,6 +40,7 @@ export function Competitiveness() {
         annual_volume: inp.volMid,
         tool_cost_eur: inp.toolCost / inp.eurPlnRate,
         eur_rate: inp.eurPlnRate,
+        scrap_rate_pct: inp.scrapRate * 100,
       });
       setAiResult(result);
     } catch (err: unknown) {

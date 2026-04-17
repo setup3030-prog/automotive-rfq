@@ -105,3 +105,4 @@ CORS is configured in [backend/app/main.py:28-37](backend/app/main.py#L28-L37) �
 | [README.md](README.md) | Business formulas, complete API reference, PostgreSQL migration |
 | [frontend/src/types/rfq.ts](frontend/src/types/rfq.ts) | All data shapes — consult before touching any interface |
 | [backend/app/schemas/rfq.py](backend/app/schemas/rfq.py) | Backend Pydantic models — keep in sync with frontend types |
+| [.claude/docs/pricing_semantics.md](.claude/docs/pricing_semantics.md) | Tier ordering (walkAway/aggressive/target), margin thresholds, risk labels |

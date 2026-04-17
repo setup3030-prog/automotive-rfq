@@ -1,7 +1,6 @@
-import type { RfqInput, ScenariosInput, ScenarioParams, ScenarioResult } from '../types/rfq';
+import type { RfqInput, ScenariosInput, ScenarioParams, ScenarioResult, PriceStrategyMargins } from '../types/rfq';
 import { safe, safeDiv } from '../utils/formatters';
-
-const SELLING_MARGIN = 0.18;
+import { calcCostModel } from './costModel';
 
 function goNoGo(margin: number): string {
   if (margin < 0.05) return '🚫 NO GO';
@@ -9,30 +8,25 @@ function goNoGo(margin: number): string {
   return '✅ GO';
 }
 
-function calcScenario(inp: RfqInput, s: ScenarioParams, name: string): ScenarioResult {
-  const oeeS = Math.min(s.oee, 0.90);
-  const scrapS = Math.max(s.scrapRate, 0.02);
-  const netPartsPerHour = safe(
-    (3600 / s.cycleTime) * inp.cavities * oeeS * (1 - scrapS)
-  );
+function calcScenario(inp: RfqInput, s: ScenarioParams, name: string, margins: PriceStrategyMargins): ScenarioResult {
+  // Build a modified RfqInput for this scenario and run the full cost model
+  // so that indirect labor, runner material, setup, maintenance are all included.
+  const scenarioInp: RfqInput = {
+    ...inp,
+    volMid: s.volume,
+    cycleTimeActual: s.cycleTime,
+    oee: s.oee,
+    scrapRate: s.scrapRate,
+    materialPrice: s.materialPrice,
+    machineHourlyRate: s.machineRate,
+    laborRate: s.laborRate,
+    energyPrice: s.energyPrice,
+    fixedOverhead: s.fixedOverhead,
+  };
 
-  const matCost = safe((inp.shotWeight / inp.cavities + inp.runnerWeight / inp.cavities) * s.materialPrice);
-  const machineCost = safeDiv(s.machineRate, netPartsPerHour);
-  const laborCost = safeDiv(s.laborRate * inp.operatorsPerMachine, netPartsPerHour);
-  const energyCost = safeDiv((inp.machineConsumption + inp.auxiliaryEquipment) * s.energyPrice, netPartsPerHour);
-  const toolAmort = safeDiv(inp.toolCost, inp.toolLifetime * inp.cavities);
-  const toolMaint = safeDiv(inp.toolCost * inp.toolMaintenanceYear, s.volume);
-  const fixedOh = safeDiv(s.fixedOverhead, s.volume);
-  const varOhBase = matCost + laborCost + energyCost;
-  const varOh = safe(inp.variableOverheadRate * varOhBase);
-
-  const mfgCost = safe(
-    matCost + machineCost + laborCost + energyCost +
-    toolAmort + toolMaint + fixedOh + varOh +
-    inp.packagingCost + inp.logisticsCost
-  );
-
-  const sellingPrice = safeDiv(mfgCost, 1 - SELLING_MARGIN);
+  const cm = calcCostModel(scenarioInp);
+  const mfgCost = cm.totalMfgCost;
+  const sellingPrice = safeDiv(mfgCost, 1 - margins.marginTarget);
   const margin = safeDiv(sellingPrice - mfgCost, sellingPrice);
   const annualRevenue = safe(sellingPrice * s.volume);
   const annualProfit = safe((sellingPrice - mfgCost) * s.volume);
@@ -40,10 +34,10 @@ function calcScenario(inp: RfqInput, s: ScenarioParams, name: string): ScenarioR
   return { name, params: s, mfgCost, sellingPrice, margin, annualRevenue, annualProfit, goNoGo: goNoGo(margin) };
 }
 
-export function calcScenarios(inp: RfqInput, scenarios: ScenariosInput): ScenarioResult[] {
+export function calcScenarios(inp: RfqInput, scenarios: ScenariosInput, margins: PriceStrategyMargins): ScenarioResult[] {
   return [
-    calcScenario(inp, scenarios.best, 'Best Case'),
-    calcScenario(inp, scenarios.realistic, 'Realistic'),
-    calcScenario(inp, scenarios.worst, 'Worst Case'),
+    calcScenario(inp, scenarios.best, 'Best Case', margins),
+    calcScenario(inp, scenarios.realistic, 'Realistic', margins),
+    calcScenario(inp, scenarios.worst, 'Worst Case', margins),
   ];
 }

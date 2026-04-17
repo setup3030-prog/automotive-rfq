@@ -29,14 +29,20 @@ function costAtParams(
   return safe(machCost + matCost + labCost + enCost + toolAmort + toolMaint + fixedOh + varOh + inp.packagingCost + inp.logisticsCost);
 }
 
+// Base value must come from inp so that isBase tracks the live input, not a stale constant.
+// If the actual base value is not in the predefined range array, inject it before sorting.
 function buildPoints(
   values: number[],
   baseValue: number,
   costFn: (v: number) => number,
   customerTarget: number
 ): SensitivityPoint[] {
+  const allValues = values.some((v) => Math.abs(v - baseValue) < 1e-9)
+    ? values
+    : [...values, baseValue].sort((a, b) => a - b);
+
   const baseCost = costFn(baseValue);
-  return values.map((v) => {
+  return allValues.map((v) => {
     const cost = costFn(v);
     const vsBase = safe(cost - baseCost);
     const marginAtTarget = safeDiv(customerTarget - cost, customerTarget);
@@ -58,15 +64,15 @@ export function calcSensitivity(inp: RfqInput): SensitivityResult {
   const ep = inp.energyPrice;
   const cTarget = inp.targetPrice;
 
-  // 8.1 Cycle Time
+  // 8.1 Cycle Time — base from live input
   const ctValues = [22, 25, 28, 30, 32, 35, 38, 42, 48, 55];
   const cycleTime = buildPoints(
-    ctValues, 32,
+    ctValues, ct,
     (v) => costAtParams(inp, v, mp, oee, ep),
     cTarget
   );
 
-  // 8.2 Material Price
+  // 8.2 Material Price — relative multiplier; base is always 1.00 (= current price)
   const matPcts = [0.70, 0.80, 0.90, 0.95, 1.00, 1.05, 1.10, 1.20, 1.30, 1.50];
   const materialPrice = buildPoints(
     matPcts, 1.00,
@@ -74,18 +80,18 @@ export function calcSensitivity(inp: RfqInput): SensitivityResult {
     cTarget
   );
 
-  // 8.3 OEE
+  // 8.3 OEE — base from live input
   const oeeValues = [0.60, 0.65, 0.70, 0.75, 0.80, 0.82, 0.85, 0.88, 0.90, 0.92];
   const oeePoints = buildPoints(
-    oeeValues, 0.82,
+    oeeValues, inp.oee,
     (v) => costAtParams(inp, ct, mp, v, ep),
     cTarget
   );
 
-  // 8.4 Energy Price
+  // 8.4 Energy Price — base from live input
   const epValues = [0.40, 0.50, 0.60, 0.65, 0.72, 0.80, 0.90, 1.00, 1.20, 1.50];
   const energyPrice = buildPoints(
-    epValues, 0.72,
+    epValues, ep,
     (v) => costAtParams(inp, ct, mp, oee, v),
     cTarget
   );

@@ -8,14 +8,6 @@ import { PriceComparisonChart } from '../charts/PriceComparisonChart';
 import { fmtPrice, fmtPct, fmtNum } from '../../utils/formatters';
 import { exportPDF } from '../../api/client';
 
-function goNoGoDecision(cm: ReturnType<typeof import('../../calculations/costModel')['calcCostModel']>, targetMargin: number, marginMin: number): { text: string; color: 'red' | 'yellow' | 'green' } {
-  const { totalMfgCost } = cm;
-  if (totalMfgCost > cm.totalMfgCost) return { text: '🚫 NO GO — COST EXCEEDS PRICE', color: 'red' };
-  if (targetMargin < 0.06) return { text: '🔴 HIGH RISK — MARGIN TOO THIN', color: 'red' };
-  if (targetMargin < 0.14) return { text: '🟡 PROCEED WITH CAUTION', color: 'yellow' };
-  return { text: '✅ GO — QUOTE AT TARGET PRICE', color: 'green' };
-}
-
 export function Dashboard() {
   const { state, computed, dispatch } = useRfq();
   const { costModel: cm, priceStrategy: ps, competitiveness: comp } = computed;
@@ -26,9 +18,7 @@ export function Dashboard() {
   const targetMargin = ps.target.margin;
   const marginMin = state.priceMargins.marginMin;
   let decision = { text: '', color: 'green' as 'red' | 'yellow' | 'green' };
-  if (cm.totalMfgCost > ps.walkAway.price) {
-    decision = { text: '🚫 NO GO — COST ABOVE WALK-AWAY', color: 'red' };
-  } else if (targetMargin < 0.06) {
+  if (targetMargin < 0.06) {
     decision = { text: '🔴 HIGH RISK — MARGIN TOO THIN', color: 'red' };
   } else if (targetMargin < 0.14) {
     decision = { text: '🟡 PROCEED WITH CAUTION', color: 'yellow' };
