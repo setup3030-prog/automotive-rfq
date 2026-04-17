@@ -1,7 +1,7 @@
 """
-AI-powered competitor price estimation using Claude API.
+AI-powered competitor price estimation using Google Gemini API.
 
-Sends RFQ technical parameters to claude-haiku, which applies
+Sends RFQ technical parameters to Gemini, which applies
 typical injection molding benchmark rates per country and returns
 estimated competitor selling prices with rationale.
 """
@@ -10,7 +10,6 @@ from __future__ import annotations
 import json
 import os
 import logging
-from typing import Optional
 
 from app.schemas.rfq import (
     CompetitorAnalysisRequest,
@@ -21,6 +20,7 @@ from app.schemas.rfq import (
 logger = logging.getLogger(__name__)
 
 _COUNTRIES = "Germany (DE), Czech Republic (CZ), Slovakia (SK), Romania (RO)"
+_DEFAULT_MODEL = "gemini-2.5-flash"
 
 
 def _build_prompt(req: CompetitorAnalysisRequest) -> str:
@@ -43,7 +43,7 @@ Instructions:
 1. For each country, select realistic mid-range benchmark rates (IM industry, 100-300t machines)
 2. Calculate: parts_per_hour = (3600 / cycle_time) * cavities * (oee/100)
 3. machine_cost = machine_rate / parts_per_hour
-4. material_cost = shot_weight * material_price / (1 - {req.scrap_rate_pct / 100:.4f})  [{req.scrap_rate_pct:.1f}% scrap]
+4. material_cost = shot_weight * material_price / (1 - 0.03)  [3% scrap]
 5. labor_cost = labor_rate / parts_per_hour
 6. energy_cost = energy_rate / parts_per_hour
 7. tool_amort = tool_cost_eur / annual_volume
@@ -69,55 +69,79 @@ Return ONLY valid JSON — no other text, no markdown, no explanation outside th
 }}"""
 
 
-def run_competitor_analysis(req: CompetitorAnalysisRequest) -> CompetitorAnalysisResponse:
-    """
-    Call Claude API and return structured competitor analysis.
-    Raises ValueError if ANTHROPIC_API_KEY is not configured.
-    Raises RuntimeError on API / parsing errors.
-    """
-    api_key = os.getenv("ANTHROPIC_API_KEY")
-    if not api_key:
-        raise ValueError(
-            "ANTHROPIC_API_KEY is not set. "
-            "Add it to your environment variables (Vercel → Settings → Environment Variables)."
-        )
-
-    # Import here so the module loads even when anthropic is not installed yet
-    try:
-        import anthropic
-    except ImportError as exc:
-        raise RuntimeError(
-            "anthropic package is not installed. Run: pip install anthropic"
-        ) from exc
-
-    client = anthropic.Anthropic(api_key=api_key)
-
-    prompt = _build_prompt(req)
-
-    try:
-        message = client.messages.create(
-            model="claude-haiku-4-5-20251001",
-            max_tokens=1024,
-            messages=[{"role": "user", "content": prompt}],
-        )
-    except Exception as exc:
-        logger.error("Claude API call failed: %s", exc)
-        raise RuntimeError(f"Claude API error: {exc}") from exc
-
-    raw = message.content[0].text.strip()
-
-    # Strip markdown code fences if present
+def _strip_markdown_fences(raw: str) -> str:
+    """Defensive: strip ```json ... ``` fences if the model includes them."""
+    raw = raw.strip()
     if raw.startswith("```"):
         raw = raw.split("```")[1]
         if raw.startswith("json"):
             raw = raw[4:]
         raw = raw.strip()
+    return raw
+
+
+def run_competitor_analysis(req: CompetitorAnalysisRequest) -> CompetitorAnalysisResponse:
+    """
+    Call Gemini API and return structured competitor analysis.
+    Raises ValueError if GEMINI_API_KEY is not configured.
+    Raises RuntimeError on API / parsing errors.
+    """
+    api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+    if not api_key:
+        raise ValueError(
+            "GEMINI_API_KEY is not set. "
+            "Add it to your environment variables (Vercel -> Settings -> Environment Variables). "
+            "Get a key at https://aistudio.google.com/apikey."
+        )
+
+    # Import here so the module loads even when google-generativeai is not installed yet
+    try:
+        import google.generativeai as genai
+    except ImportError as exc:
+        raise RuntimeError(
+            "google-generativeai package is not installed. "
+            "Run: pip install google-generativeai"
+        ) from exc
+
+    model_name = os.getenv("GEMINI_MODEL", _DEFAULT_MODEL)
+    prompt = _build_prompt(req)
+
+    try:
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel(model_name)
+        response = model.generate_content(
+            prompt,
+            generation_config={
+                "temperature": 0.2,
+                "max_output_tokens": 1024,
+                "response_mime_type": "application/json",
+            },
+        )
+    except Exception as exc:
+        logger.error("Gemini API call failed: %s", exc)
+        raise RuntimeError(f"Gemini API error: {exc}") from exc
+
+    # Extract text from response
+    try:
+        raw = (response.text or "").strip()
+    except Exception as exc:
+        logger.error("Gemini response has no text: %s", exc)
+        raise RuntimeError(f"Gemini returned empty response: {exc}") from exc
+
+    if not raw:
+        raise RuntimeError("Gemini returned empty response text.")
+
+    raw = _strip_markdown_fences(raw)
 
     try:
         data = json.loads(raw)
     except json.JSONDecodeError as exc:
-        logger.error("Claude returned invalid JSON: %s", raw[:500])
+        logger.error("Gemini returned invalid JSON: %s", raw[:500])
         raise RuntimeError(f"AI returned non-JSON response: {exc}") from exc
+
+    countries_raw = data.get("countries")
+    if not isinstance(countries_raw, list) or not countries_raw:
+        raise RuntimeError("AI response is missing 'countries' array or it is empty.")
 
     countries = [
         CountryEstimate(
@@ -131,7 +155,7 @@ def run_competitor_analysis(req: CompetitorAnalysisRequest) -> CompetitorAnalysi
             est_price_high_eur=float(c.get("est_price_high_eur", 0)),
             rationale=str(c.get("rationale", "")),
         )
-        for c in data.get("countries", [])
+        for c in countries_raw
     ]
 
     return CompetitorAnalysisResponse(

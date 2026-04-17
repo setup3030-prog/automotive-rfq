@@ -91,6 +91,9 @@ See [.claude/docs/architectural_patterns.md](.claude/docs/architectural_patterns
 | Method | Path | Purpose |
 |---|---|---|
 | `POST` | `/api/v1/rfq/calculate` | Full RFQ analysis (no persistence) |
+| `POST` | `/api/v1/rfq/export-pdf` | Export quote as A4 PDF |
+| `POST` | `/api/v1/rfq/export-cfo-pdf` | Export CFO internal summary PDF |
+| `POST` | `/api/v1/rfq/competitor-analysis` | AI competitor price estimation (Claude) |
 | `POST` | `/api/v1/quotes/` | Calculate + save to DB |
 | `GET` | `/api/v1/quotes/` | List saved quotes |
 | `GET/DELETE` | `/api/v1/quotes/{id}` | Single quote |
@@ -106,3 +109,4 @@ CORS is configured in [backend/app/main.py:28-37](backend/app/main.py#L28-L37) �
 | [frontend/src/types/rfq.ts](frontend/src/types/rfq.ts) | All data shapes — consult before touching any interface |
 | [backend/app/schemas/rfq.py](backend/app/schemas/rfq.py) | Backend Pydantic models — keep in sync with frontend types |
 | [.claude/docs/pricing_semantics.md](.claude/docs/pricing_semantics.md) | Tier ordering (walkAway/aggressive/target), margin thresholds, risk labels |
+| [.claude/docs/financials.md](.claude/docs/financials.md) | All financial fields, NPV/IRR/ROCE/WC formulas, toolOwnershipType, volumeCurve, escalation, thresholds |

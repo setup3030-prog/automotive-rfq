@@ -4,6 +4,7 @@ export declare function listQuotes(): Promise<unknown>;
 export declare function getQuote(id: number | string): Promise<unknown>;
 export declare function analyzeCompetitors(data: unknown): Promise<CompetitorAnalysisResponse>;
 export declare function exportPDF(data: unknown): Promise<Blob>;
+export declare function exportCfoPDF(data: unknown): Promise<Blob>;
 
 export interface CountryEstimate {
   country: string;

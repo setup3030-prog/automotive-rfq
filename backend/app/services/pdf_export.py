@@ -237,3 +237,148 @@ def generate_quote_pdf(data: dict) -> bytes:
     buf = BytesIO()
     pdf.output(buf)
     return buf.getvalue()
+
+
+# ── CFO Summary PDF ───────────────────────────────────────────────────────────
+
+def _watermark(pdf: FPDF) -> None:
+    """Print diagonal CONFIDENTIAL watermark on current page."""
+    pdf.set_font("Helvetica", "B", 38)
+    pdf.set_text_color(220, 220, 220)
+    with pdf.rotation(angle=45, x=105, y=148):
+        pdf.text(x=30, y=165, txt="CONFIDENTIAL — INTERNAL USE ONLY")
+    pdf.set_text_color(0, 0, 0)
+
+
+def _flag_cell(pdf: FPDF, value: str, flag: str) -> None:
+    """Single cell with green/yellow/red background."""
+    colors = {"green": (218, 248, 218), "yellow": (255, 255, 210), "red": (255, 218, 218)}
+    pdf.set_fill_color(*colors.get(flag, (240, 240, 240)))
+    pdf.cell(40, 6, value, fill=True, align="C")
+
+
+def generate_cfo_summary_pdf(data: dict) -> bytes:
+    """
+    Build a 1-2 page internal CFO summary PDF.
+    ``data`` must contain pre-calculated financial fields:
+      program, customer, rfq_date, quoting_engineer, currency,
+      npv, irr, payback_months, roce_y3, peak_wc, tooling_exposure,
+      meets_hurdle, pnl_years, top_risks, fx_summary, conditions
+    """
+    pdf = _QuotePDF(orientation="P", unit="mm", format="A4")
+    pdf.set_margins(left=14, top=18, right=14)
+    pdf.set_auto_page_break(auto=True, margin=18)
+    pdf.add_page()
+
+    cur = _safe(data.get("currency", "PLN"))
+
+    # ── Watermark ────────────────────────────────────────────────
+    _watermark(pdf)
+
+    # ── Header ───────────────────────────────────────────────────
+    _section_header(pdf, "CFO PROGRAM SUMMARY — CONFIDENTIAL")
+    _two_col(pdf, [
+        ("Program",          _safe(data.get("program", "-"))),
+        ("Customer",         _safe(data.get("customer", "-"))),
+        ("Quoting Engineer", _safe(data.get("quoting_engineer", "-"))),
+        ("Date",             _safe(data.get("rfq_date", "-"))),
+    ])
+
+    # ── 1. KPI Financial ─────────────────────────────────────────
+    _section_header(pdf, "1. Financial KPIs")
+    kpis = [
+        ("Program NPV",      data.get("npv_str", "-"),          data.get("npv_flag", "green")),
+        ("IRR",              data.get("irr_str", "-"),           data.get("irr_flag", "green")),
+        ("Payback",          data.get("payback_str", "-"),       data.get("payback_flag", "green")),
+        ("ROCE Y3",          data.get("roce_str", "-"),          data.get("roce_flag", "green")),
+        ("Peak WC",          data.get("peak_wc_str", "-"),       data.get("wc_flag", "green")),
+        ("Tooling Exposure", data.get("tooling_str", "-"),       "none"),
+    ]
+    pdf.set_font("Helvetica", "B", 9)
+    pdf.set_fill_color(50, 75, 130)
+    pdf.set_text_color(255, 255, 255)
+    pdf.cell(90, 6, "  KPI", fill=True)
+    pdf.cell(40, 6, "Value", fill=True, align="C")
+    pdf.cell(40, 6, "Status", fill=True, align="C", new_x="LMARGIN", new_y="NEXT")
+    pdf.set_text_color(0, 0, 0)
+    for label, value, flag in kpis:
+        pdf.set_font("Helvetica", "", 9)
+        pdf.set_fill_color(242, 244, 250)
+        pdf.cell(90, 6, f"  {_safe(label)}", fill=True)
+        pdf.set_fill_color(255, 255, 255)
+        pdf.cell(40, 6, _safe(str(value)), fill=True, align="C")
+        _flag_cell(pdf, flag.upper() if flag != "none" else "-", flag)
+        pdf.ln()
+    pdf.ln(3)
+
+    # ── 2. P&L Summary ───────────────────────────────────────────
+    pnl_rows = data.get("pnl_years", [])
+    if pnl_rows:
+        _section_header(pdf, "2. P&L Summary")
+        pdf.set_font("Helvetica", "B", 9)
+        pdf.set_fill_color(50, 75, 130)
+        pdf.set_text_color(255, 255, 255)
+        pdf.cell(20, 6, "Year", fill=True)
+        pdf.cell(45, 6, f"Revenue ({cur})", fill=True, align="R")
+        pdf.cell(30, 6, "GM%", fill=True, align="R")
+        pdf.cell(45, 6, f"EBITDA ({cur})", fill=True, align="R", new_x="LMARGIN", new_y="NEXT")
+        pdf.set_text_color(0, 0, 0)
+        for row in pnl_rows[:7]:
+            pdf.set_font("Helvetica", "", 9)
+            pdf.set_fill_color(248, 249, 253)
+            pdf.cell(20, 6, _safe(str(row.get("year", ""))), fill=True)
+            pdf.cell(45, 6, _safe(str(row.get("revenue", ""))), fill=True, align="R")
+            pdf.cell(30, 6, _safe(str(row.get("gm_pct", ""))), fill=True, align="R")
+            pdf.cell(45, 6, _safe(str(row.get("ebitda", ""))), fill=True, align="R", new_x="LMARGIN", new_y="NEXT")
+        pdf.ln(3)
+
+    # ── 3. Top Risks ──────────────────────────────────────────────
+    top_risks = data.get("top_risks", [])
+    if top_risks:
+        _section_header(pdf, "3. Top Risk Scenarios")
+        for risk in top_risks[:3]:
+            pdf.set_font("Helvetica", "", 9)
+            flag = "green" if risk.get("still_meets_hurdle") else "red"
+            colors = {"green": (218, 248, 218), "red": (255, 218, 218)}
+            pdf.set_fill_color(*colors.get(flag, (240, 240, 240)))
+            pdf.cell(0, 6, f"  {_safe(risk.get('name',''))}  |  DNPV: {_safe(risk.get('delta_npv_str',''))}  |  {_safe(risk.get('status',''))}",
+                     fill=True, new_x="LMARGIN", new_y="NEXT")
+        pdf.ln(3)
+
+    # ── 4. FX Exposure ────────────────────────────────────────────
+    fx = data.get("fx_summary", {})
+    if fx:
+        _section_header(pdf, "4. FX Exposure Summary")
+        _two_col(pdf, [
+            ("Net Open Position (EUR)", _safe(fx.get("net_open_str", "-"))),
+            ("Natural Hedge",            _safe(fx.get("natural_hedge_str", "-"))),
+            ("Hedge Ratio",              _safe(fx.get("hedge_ratio_str", "-"))),
+            ("Margin Impact EUR +10%",   _safe(fx.get("margin_plus_str", "-"))),
+        ])
+
+    # ── 5. Recommendation ────────────────────────────────────────
+    _section_header(pdf, "5. GO / NO-GO Recommendation")
+    meets = data.get("meets_hurdle", False)
+    bg = (20, 110, 40) if meets else (170, 25, 25)
+    label = "GO" if meets else "NO GO"
+    pdf.set_font("Helvetica", "B", 11)
+    pdf.set_fill_color(*bg)
+    pdf.set_text_color(255, 255, 255)
+    pdf.cell(0, 10, f"   {label}", fill=True, new_x="LMARGIN", new_y="NEXT")
+    pdf.set_text_color(0, 0, 0)
+    pdf.ln(2)
+    conditions = data.get("conditions", [])
+    if conditions:
+        pdf.set_font("Helvetica", "", 9)
+        for c in conditions:
+            pdf.cell(0, 6, f"  * {_safe(str(c))}", new_x="LMARGIN", new_y="NEXT")
+
+    # Watermark on every page
+    for pg in range(1, pdf.page + 1):
+        pdf.page = pg
+        _watermark(pdf)
+    pdf.page = pdf.pages
+
+    buf = BytesIO()
+    pdf.output(buf)
+    return buf.getvalue()

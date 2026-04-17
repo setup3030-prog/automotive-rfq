@@ -264,3 +264,56 @@ class CompetitorAnalysisResponse(BaseModel):
 
     countries: List[CountryEstimate]
     summary: str
+
+
+# ─────────────────────────────────────────────
+# CFO SUMMARY PDF REQUEST
+# ─────────────────────────────────────────────
+
+class PnLYearRow(BaseModel):
+    year: str
+    revenue: str
+    gm_pct: str
+    ebitda: str
+
+
+class RiskRow(BaseModel):
+    name: str
+    delta_npv_str: str
+    status: str
+    still_meets_hurdle: bool
+
+
+class FxSummary(BaseModel):
+    net_open_str: str
+    natural_hedge_str: str
+    hedge_ratio_str: str
+    margin_plus_str: str
+
+
+class CFOSummaryRequest(BaseModel):
+    """Payload for /export-cfo-pdf — pre-formatted strings + flags."""
+    program: str = Field(default="New RFQ", max_length=200)
+    customer: Optional[str] = None
+    quoting_engineer: Optional[str] = None
+    rfq_date: Optional[str] = None
+    currency: str = "PLN"
+
+    npv_str: str = "-"
+    irr_str: str = "-"
+    payback_str: str = "-"
+    roce_str: str = "-"
+    peak_wc_str: str = "-"
+    tooling_str: str = "-"
+
+    npv_flag: str = "green"
+    irr_flag: str = "green"
+    payback_flag: str = "green"
+    roce_flag: str = "green"
+    wc_flag: str = "green"
+
+    meets_hurdle: bool = False
+    pnl_years: List[PnLYearRow] = Field(default_factory=list)
+    top_risks: List[RiskRow] = Field(default_factory=list)
+    fx_summary: Optional[FxSummary] = None
+    conditions: List[str] = Field(default_factory=list)

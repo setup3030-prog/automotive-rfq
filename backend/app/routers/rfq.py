@@ -11,14 +11,14 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from io import BytesIO
 
-from app.schemas.rfq import RFQInput, RFQAnalysis, PDFExportRequest, CompetitorAnalysisRequest, CompetitorAnalysisResponse
+from app.schemas.rfq import RFQInput, RFQAnalysis, PDFExportRequest, CompetitorAnalysisRequest, CompetitorAnalysisResponse, CFOSummaryRequest
 from app.services.calculation import calculate_costs
 from app.services.pricing import calculate_pricing
 from app.services.risk import calculate_risk
 from app.services.decision import calculate_decision
 from app.services.sensitivity import run_sensitivity_analysis
 from app.services.recommendations import generate_recommendations
-from app.services.pdf_export import generate_quote_pdf
+from app.services.pdf_export import generate_quote_pdf, generate_cfo_summary_pdf
 from app.services.competitor_ai import run_competitor_analysis
 
 router = APIRouter()
@@ -91,14 +91,33 @@ def export_pdf(payload: PDFExportRequest) -> StreamingResponse:
 
 
 @router.post(
+    "/export-cfo-pdf",
+    summary="Export CFO internal summary as PDF",
+    response_class=StreamingResponse,
+)
+def export_cfo_pdf(payload: CFOSummaryRequest) -> StreamingResponse:
+    try:
+        pdf_bytes = generate_cfo_summary_pdf(payload.model_dump())
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"CFO PDF generation error: {exc}")
+
+    rfq_slug = (payload.program or "cfo").replace(" ", "_")[:40]
+    return StreamingResponse(
+        BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="CFO_{rfq_slug}.pdf"'},
+    )
+
+
+@router.post(
     "/competitor-analysis",
     response_model=CompetitorAnalysisResponse,
     summary="AI competitor price estimation",
     description=(
-        "Sends technical RFQ parameters to Claude AI, which estimates "
+        "Sends technical RFQ parameters to Google Gemini, which estimates "
         "unit selling prices for competitors from DE, CZ, SK, RO using "
         "typical injection molding benchmark rates per country. "
-        "Requires ANTHROPIC_API_KEY environment variable."
+        "Requires GEMINI_API_KEY (or GOOGLE_API_KEY) environment variable."
     ),
 )
 def competitor_analysis(req: CompetitorAnalysisRequest) -> CompetitorAnalysisResponse:
