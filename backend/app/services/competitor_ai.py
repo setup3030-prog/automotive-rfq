@@ -1,7 +1,7 @@
 """
-AI-powered competitor price estimation using Claude (Anthropic API).
+AI-powered competitor price estimation using Google Gemini API.
 
-Sends RFQ technical parameters to Claude, which applies
+Sends RFQ technical parameters to Gemini, which applies
 typical injection molding benchmark rates per country and returns
 estimated competitor selling prices with rationale.
 """
@@ -20,7 +20,7 @@ from app.schemas.rfq import (
 logger = logging.getLogger(__name__)
 
 _COUNTRIES = "Germany (DE), Czech Republic (CZ), Slovakia (SK), Romania (RO)"
-_DEFAULT_MODEL = "claude-haiku-4-5-20251001"
+_DEFAULT_MODEL = "gemini-2.5-flash"
 
 
 def _build_prompt(req: CompetitorAnalysisRequest) -> str:
@@ -82,53 +82,59 @@ def _strip_markdown_fences(raw: str) -> str:
 
 def run_competitor_analysis(req: CompetitorAnalysisRequest) -> CompetitorAnalysisResponse:
     """
-    Call Claude API and return structured competitor analysis.
-    Raises ValueError if ANTHROPIC_API_KEY is not configured.
+    Call Gemini API and return structured competitor analysis.
+    Raises ValueError if GEMINI_API_KEY is not configured.
     Raises RuntimeError on API / parsing errors.
     """
-    api_key = os.getenv("ANTHROPIC_API_KEY")
+    api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
     if not api_key:
         raise ValueError(
-            "ANTHROPIC_API_KEY is not set. "
-            "Add it to your environment variables (Vercel -> Settings -> Environment Variables)."
+            "GEMINI_API_KEY is not set. "
+            "Add it to your environment variables (Vercel -> Settings -> Environment Variables). "
+            "Get a key at https://aistudio.google.com/apikey."
         )
 
     try:
-        import anthropic
+        import google.generativeai as genai
     except ImportError as exc:
         raise RuntimeError(
-            "anthropic package is not installed. Run: pip install anthropic"
+            "google-generativeai package is not installed. "
+            "Run: pip install google-generativeai"
         ) from exc
 
-    model_name = os.getenv("COMPETITOR_AI_MODEL", _DEFAULT_MODEL)
+    model_name = os.getenv("GEMINI_MODEL", _DEFAULT_MODEL)
     prompt = _build_prompt(req)
 
     try:
-        client = anthropic.Anthropic(api_key=api_key)
-        message = client.messages.create(
-            model=model_name,
-            max_tokens=1024,
-            messages=[{"role": "user", "content": prompt}],
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel(model_name)
+        response = model.generate_content(
+            prompt,
+            generation_config={
+                "temperature": 0.2,
+                "max_output_tokens": 1024,
+                "response_mime_type": "application/json",
+            },
         )
     except Exception as exc:
-        logger.error("Claude API call failed: %s", exc)
-        raise RuntimeError(f"Claude API error: {exc}") from exc
+        logger.error("Gemini API call failed: %s", exc)
+        raise RuntimeError(f"Gemini API error: {exc}") from exc
 
     try:
-        raw = (message.content[0].text or "").strip()
+        raw = (response.text or "").strip()
     except Exception as exc:
-        logger.error("Claude response has no text: %s", exc)
-        raise RuntimeError(f"Claude returned empty response: {exc}") from exc
+        logger.error("Gemini response has no text: %s", exc)
+        raise RuntimeError(f"Gemini returned empty response: {exc}") from exc
 
     if not raw:
-        raise RuntimeError("Claude returned empty response text.")
+        raise RuntimeError("Gemini returned empty response text.")
 
     raw = _strip_markdown_fences(raw)
 
     try:
         data = json.loads(raw)
     except json.JSONDecodeError as exc:
-        logger.error("Claude returned invalid JSON: %s", raw[:500])
+        logger.error("Gemini returned invalid JSON: %s", raw[:500])
         raise RuntimeError(f"AI returned non-JSON response: {exc}") from exc
 
     countries_raw = data.get("countries")
