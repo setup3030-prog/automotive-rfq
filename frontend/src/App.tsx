@@ -9,6 +9,7 @@ import { Competitiveness } from './components/tabs/Competitiveness';
 import { NegotiationSupport } from './components/tabs/NegotiationSupport';
 import { Scenarios } from './components/tabs/Scenarios';
 import { Sensitivity } from './components/tabs/Sensitivity';
+import { Financials } from './components/tabs/Financials';
 import { QuoteHistory } from './components/ui/QuoteHistory';
 import type { TabId } from './types/rfq';
 
@@ -21,6 +22,7 @@ const TABS: { id: TabId; label: string; short: string }[] = [
   { id: 'negotiation', label: 'Negotiation', short: '6' },
   { id: 'scenarios', label: 'Scenarios', short: '7' },
   { id: 'sensitivity', label: 'Sensitivity', short: '8' },
+  { id: 'financials',  label: 'Financials',  short: '9' },
 ];
 
 function TabContent({ active }: { active: TabId }) {
@@ -33,6 +35,7 @@ function TabContent({ active }: { active: TabId }) {
     case 'negotiation': return <NegotiationSupport />;
     case 'scenarios': return <Scenarios />;
     case 'sensitivity': return <Sensitivity />;
+    case 'financials':  return <Financials />;
   }
 }
 
