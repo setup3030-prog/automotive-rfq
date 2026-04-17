@@ -347,6 +347,7 @@ export interface NpvResult {
   paybackMonths: number | null;
   discountedPayback: number | null;
   roceY3: number;
+  y3Idx: number;       // 0-based index of the year used for ROCE (min(2, lifecycle-1))
   meetsHurdle: boolean;
 }
 

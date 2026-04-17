@@ -244,7 +244,7 @@ export function RfqProvider({ children }: { children: React.ReactNode }) {
     const programPnL = calcProgramPnL(state.input, costModel, priceStrategy);
     const workingCapital = calcWorkingCapital(programPnL, state.input);
     const cashflow = calcCashflow(programPnL, workingCapital, state.input);
-    const npv = calcNpv(cashflow, state.input);
+    const npv = calcNpv(cashflow, programPnL, workingCapital, state.input, state.input.hurdleRate);
     const financialRisk = calcFinancialRisk(state.input, costModel, priceStrategy);
     const fxExposure = calcFxExposure(programPnL, state.input);
     return { costModel, priceStrategy, competitiveness, scenarios, sensitivity, programPnL, workingCapital, cashflow, npv, financialRisk, fxExposure };
