@@ -1,7 +1,7 @@
 """
-AI-powered competitor price estimation using Google Gemini API.
+AI-powered competitor price estimation using Claude (Anthropic API).
 
-Sends RFQ technical parameters to Gemini, which applies
+Sends RFQ technical parameters to Claude, which applies
 typical injection molding benchmark rates per country and returns
 estimated competitor selling prices with rationale.
 """
@@ -20,12 +20,13 @@ from app.schemas.rfq import (
 logger = logging.getLogger(__name__)
 
 _COUNTRIES = "Germany (DE), Czech Republic (CZ), Slovakia (SK), Romania (RO)"
-_DEFAULT_MODEL = "gemini-2.5-flash"
+_DEFAULT_MODEL = "claude-haiku-4-5-20251001"
 
 
 def _build_prompt(req: CompetitorAnalysisRequest) -> str:
     grade = req.material_grade or "standard thermoplastic"
     tool_note = f"{req.tool_cost_eur:,.0f} EUR" if req.tool_cost_eur else "customer-owned"
+    scrap = getattr(req, "scrap_rate_pct", 3.0)
     return f"""You are an injection molding cost analyst with deep knowledge of European manufacturing costs.
 
 Estimate the unit selling price a manufacturer from each listed country would charge for this part.
@@ -35,7 +36,7 @@ Then add a realistic 12-18% margin to arrive at the selling price range.
 Part parameters:
 - Cycle time: {req.cycle_time_s:.1f}s  |  Cavities: {req.cavities}  |  OEE: {req.oee_pct:.0f}%
 - Shot weight: {req.shot_weight_kg:.4f} kg  |  Material: {grade} at {req.material_price_eur:.2f} EUR/kg
-- Annual volume: {req.annual_volume:,} pcs  |  Tool cost: {tool_note}
+- Annual volume: {req.annual_volume:,} pcs  |  Tool cost: {tool_note}  |  Scrap: {scrap:.1f}%
 
 Countries to estimate: {_COUNTRIES}
 
@@ -43,7 +44,7 @@ Instructions:
 1. For each country, select realistic mid-range benchmark rates (IM industry, 100-300t machines)
 2. Calculate: parts_per_hour = (3600 / cycle_time) * cavities * (oee/100)
 3. machine_cost = machine_rate / parts_per_hour
-4. material_cost = shot_weight * material_price / (1 - 0.03)  [3% scrap]
+4. material_cost = shot_weight * material_price / (1 - scrap_rate/100)
 5. labor_cost = labor_rate / parts_per_hour
 6. energy_cost = energy_rate / parts_per_hour
 7. tool_amort = tool_cost_eur / annual_volume
@@ -70,7 +71,6 @@ Return ONLY valid JSON — no other text, no markdown, no explanation outside th
 
 
 def _strip_markdown_fences(raw: str) -> str:
-    """Defensive: strip ```json ... ``` fences if the model includes them."""
     raw = raw.strip()
     if raw.startswith("```"):
         raw = raw.split("```")[1]
@@ -82,61 +82,53 @@ def _strip_markdown_fences(raw: str) -> str:
 
 def run_competitor_analysis(req: CompetitorAnalysisRequest) -> CompetitorAnalysisResponse:
     """
-    Call Gemini API and return structured competitor analysis.
-    Raises ValueError if GEMINI_API_KEY is not configured.
+    Call Claude API and return structured competitor analysis.
+    Raises ValueError if ANTHROPIC_API_KEY is not configured.
     Raises RuntimeError on API / parsing errors.
     """
-    api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+    api_key = os.getenv("ANTHROPIC_API_KEY")
     if not api_key:
         raise ValueError(
-            "GEMINI_API_KEY is not set. "
-            "Add it to your environment variables (Vercel -> Settings -> Environment Variables). "
-            "Get a key at https://aistudio.google.com/apikey."
+            "ANTHROPIC_API_KEY is not set. "
+            "Add it to your environment variables (Vercel -> Settings -> Environment Variables)."
         )
 
-    # Import here so the module loads even when google-generativeai is not installed yet
     try:
-        import google.generativeai as genai
+        import anthropic
     except ImportError as exc:
         raise RuntimeError(
-            "google-generativeai package is not installed. "
-            "Run: pip install google-generativeai"
+            "anthropic package is not installed. Run: pip install anthropic"
         ) from exc
 
-    model_name = os.getenv("GEMINI_MODEL", _DEFAULT_MODEL)
+    model_name = os.getenv("COMPETITOR_AI_MODEL", _DEFAULT_MODEL)
     prompt = _build_prompt(req)
 
     try:
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel(model_name)
-        response = model.generate_content(
-            prompt,
-            generation_config={
-                "temperature": 0.2,
-                "max_output_tokens": 1024,
-                "response_mime_type": "application/json",
-            },
+        client = anthropic.Anthropic(api_key=api_key)
+        message = client.messages.create(
+            model=model_name,
+            max_tokens=1024,
+            messages=[{"role": "user", "content": prompt}],
         )
     except Exception as exc:
-        logger.error("Gemini API call failed: %s", exc)
-        raise RuntimeError(f"Gemini API error: {exc}") from exc
+        logger.error("Claude API call failed: %s", exc)
+        raise RuntimeError(f"Claude API error: {exc}") from exc
 
-    # Extract text from response
     try:
-        raw = (response.text or "").strip()
+        raw = (message.content[0].text or "").strip()
     except Exception as exc:
-        logger.error("Gemini response has no text: %s", exc)
-        raise RuntimeError(f"Gemini returned empty response: {exc}") from exc
+        logger.error("Claude response has no text: %s", exc)
+        raise RuntimeError(f"Claude returned empty response: {exc}") from exc
 
     if not raw:
-        raise RuntimeError("Gemini returned empty response text.")
+        raise RuntimeError("Claude returned empty response text.")
 
     raw = _strip_markdown_fences(raw)
 
     try:
         data = json.loads(raw)
     except json.JSONDecodeError as exc:
-        logger.error("Gemini returned invalid JSON: %s", raw[:500])
+        logger.error("Claude returned invalid JSON: %s", raw[:500])
         raise RuntimeError(f"AI returned non-JSON response: {exc}") from exc
 
     countries_raw = data.get("countries")
