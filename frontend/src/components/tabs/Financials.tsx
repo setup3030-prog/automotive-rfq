@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { exportCfoPDF } from '../../api/client';
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   Legend, ResponsiveContainer, ReferenceLine, Cell,
@@ -34,7 +35,7 @@ const K = (v: number) => v >= 1_000_000 ? M(v) : v >= 1000 ? `${(v / 1000).toFix
 // ─── Overview ─────────────────────────────────────────────────────────────────
 function OverviewTab({ thresholds, onEditThresholds }: { thresholds: FinancialThresholds; onEditThresholds: () => void }) {
   const { computed, state } = useRfq();
-  const { npv, cashflow, workingCapital, programPnL, financialRisk } = computed;
+  const { npv, cashflow, workingCapital, programPnL, financialRisk, fxExposure: fx } = computed;
   const inp = state.input;
   const cur = inp.currency;
 
@@ -46,14 +47,89 @@ function OverviewTab({ thresholds, onEditThresholds }: { thresholds: FinancialTh
 
   const top3Risks = financialRisk.slice(0, 3);
 
+  const [cfoPdfLoading, setCfoPdfLoading] = useState(false);
+  const [cfoPdfError, setCfoPdfError] = useState<string | null>(null);
+
+  const handleExportCfoPDF = async () => {
+    setCfoPdfLoading(true);
+    setCfoPdfError(null);
+    try {
+      const payload = {
+        program: inp.projectName || 'New RFQ',
+        customer: inp.customerName || null,
+        quoting_engineer: inp.quotingEngineer || null,
+        rfq_date: inp.rfqDate || new Date().toISOString().slice(0, 10),
+        currency: cur,
+        npv_str: `${K(npv.npv)} ${cur}`,
+        irr_str: npv.irr !== null ? fmtPct(npv.irr) : 'N/A',
+        payback_str: npv.paybackMonths !== null ? `${npv.paybackMonths.toFixed(0)} mo` : 'N/A',
+        roce_str: fmtPct(npv.roceY3),
+        peak_wc_str: `${K(peakWC)} ${cur}`,
+        tooling_str: `${K(toolingExposure)} ${cur}`,
+        npv_flag: flagNpv(npv.npv),
+        irr_flag: flagIrr(npv.irr, thresholds),
+        payback_flag: flagPayback(npv.paybackMonths, thresholds),
+        roce_flag: flagRoce(npv.roceY3, thresholds),
+        wc_flag: flagWcIntensity(peakWC, y2Revenue, thresholds),
+        meets_hurdle: npv.meetsHurdle,
+        pnl_years: programPnL.map(y => ({
+          year: `Y${y.year}`,
+          revenue: `${K(y.revenue)} ${cur}`,
+          gm_pct: fmtPct(y.grossMarginPct),
+          ebitda: `${K(y.ebitda)} ${cur}`,
+        })),
+        top_risks: financialRisk.slice(0, 5).map(r => ({
+          name: r.name,
+          delta_npv_str: `${r.deltaNpv >= 0 ? '+' : ''}${K(r.deltaNpv)} ${cur}`,
+          status: r.stillMeetsHurdle ? 'GO' : 'NO GO',
+          still_meets_hurdle: r.stillMeetsHurdle,
+        })),
+        fx_summary: {
+          net_open_str: `${fmtNum(fx.netOpenEur, 0)} EUR`,
+          natural_hedge_str: fmtPct(fx.naturalHedgePct / 100),
+          hedge_ratio_str: fmtPct(inp.fxHedgeRatio),
+          margin_plus_str: `+${fx.marginImpactFxPlus10Pp.toFixed(2)} pp`,
+        },
+        conditions: [
+          ...(npv.meetsHurdle ? [] : [`IRR ${npv.irr !== null ? fmtPct(npv.irr) : 'N/A'} below hurdle ${fmtPct(inp.hurdleRate)}`]),
+          ...(avgGmY13 < thresholds.gmWarnPct ? [`Avg GM Y1-3 (${fmtPct(avgGmY13)}) below warning threshold`] : []),
+          ...(peakWC > y2Revenue * thresholds.wcIntensityWarn ? [`High WC intensity — peak WC ${K(peakWC)} ${cur}`] : []),
+        ],
+      };
+      const blob = await exportCfoPDF(payload);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `CFO_${(inp.projectName || 'program').replace(/\s+/g, '_')}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err: unknown) {
+      setCfoPdfError(err instanceof Error ? err.message : 'PDF generation failed');
+    } finally {
+      setCfoPdfLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-bold text-slate-300 uppercase tracking-wider">CFO Dashboard</h2>
-        <button onClick={onEditThresholds} className="flex items-center gap-1 px-2 py-1 text-xs bg-slate-700 hover:bg-slate-600 border border-slate-600 rounded text-slate-300">
-          ⚙ Thresholds
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleExportCfoPDF}
+            disabled={cfoPdfLoading}
+            className="flex items-center gap-1 px-2 py-1 text-xs bg-blue-700 hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed border border-blue-600 rounded text-white font-medium transition-colors"
+          >
+            {cfoPdfLoading ? 'Generating…' : '↓ CFO PDF'}
+          </button>
+          <button onClick={onEditThresholds} className="flex items-center gap-1 px-2 py-1 text-xs bg-slate-700 hover:bg-slate-600 border border-slate-600 rounded text-slate-300">
+            ⚙ Thresholds
+          </button>
+        </div>
       </div>
+      {cfoPdfError && (
+        <div className="text-xs text-red-400 bg-red-900/20 border border-red-700 rounded px-3 py-2">{cfoPdfError}</div>
+      )}
 
       {/* GO/NO-GO */}
       <div className={`rounded-lg border p-4 flex items-center gap-4 ${npv.meetsHurdle ? 'bg-green-900/20 border-green-700' : 'bg-red-900/20 border-red-700'}`}>
