@@ -9,13 +9,16 @@ const TAX_RATE = 0.19; // Polish CIT
  *   supplier         → full toolCost
  *   customer_amortized → 50% up-front (rest recovered via piece price)
  *   customer_paid    → 0
+ * Pre-SOP burn: 3 months × 2% of toolCost (engineering/qualification overhead before SOP).
  */
 export function calcCashflow(pnl: YearPnL[], wc: YearWC[], inp: RfqInput): YearCF[] {
-  const capexY1 = inp.toolOwnershipType === 'supplier'
+  const toolingCapex = inp.toolOwnershipType === 'supplier'
     ? inp.toolCost
     : inp.toolOwnershipType === 'customer_amortized'
     ? inp.toolCost * 0.5
     : 0;
+  const preSopBurn = inp.toolCost * 0.02 * 3;
+  const capexY1 = safe(toolingCapex + preSopBurn);
 
   let cumulativeFCF = 0;
 
