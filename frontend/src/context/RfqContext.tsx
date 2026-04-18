@@ -254,7 +254,7 @@ export function RfqProvider({ children }: { children: React.ReactNode }) {
     const financialRisk = calcFinancialRisk(state.input, costModel, priceStrategy, state.financialThresholds.hurdleIrr);
     const fxExposure = calcFxExposure(programPnL, state.input);
     return { costModel, priceStrategy, competitiveness, scenarios, sensitivity, programPnL, workingCapital, cashflow, npv, financialRisk, fxExposure };
-  }, [state.input, state.priceMargins, state.competitiveness, state.scenarios]);
+  }, [state.input, state.priceMargins, state.competitiveness, state.scenarios, state.financialThresholds]);
 
   return (
     <RfqContext.Provider value={{ state, computed, dispatch }}>
