@@ -81,6 +81,7 @@ const DEFAULT_INPUT: RfqInput = {
   dpoDays: 45,
   dioDays: 30,
   wacc: 0.09,
+  taxRate: 0.19,
   toolOwnershipType: 'customer_amortized',
   toolDepreciationYears: 5,
   bankGuaranteePct: 0.008,

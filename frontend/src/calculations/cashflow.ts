@@ -1,7 +1,6 @@
 import type { RfqInput, YearPnL, YearWC, YearCF } from '../types/rfq';
 import { safe } from '../utils/formatters';
 
-const TAX_RATE = 0.19; // Polish CIT
 
 /**
  * Build free cash flow schedule.
@@ -26,7 +25,7 @@ export function calcCashflow(pnl: YearPnL[], wc: YearWC[], inp: RfqInput): YearC
   return pnl.map((y, idx) => {
     // Apply loss carry-forward then update bucket
     const taxableEbit = y.ebit - lossCarryForward;
-    const taxPaid = safe(Math.max(0, taxableEbit) * TAX_RATE);
+    const taxPaid = safe(Math.max(0, taxableEbit) * inp.taxRate);
     lossCarryForward = safe(Math.max(0, lossCarryForward - y.ebit));
 
     const deltaWC  = wc[idx]?.deltaWC ?? 0;

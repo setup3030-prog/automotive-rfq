@@ -77,6 +77,7 @@ export interface RfqInput {
   dpoDays: number;                    // payables days outstanding
   dioDays: number;                    // inventory days outstanding
   wacc: number;                       // fraction 0–1
+  taxRate: number;                    // corporate income tax rate, fraction 0–1 (default 0.19 Polish CIT)
   toolOwnershipType: 'customer_paid' | 'customer_amortized' | 'supplier';
   toolDepreciationYears: number;
   bankGuaranteePct: number;           // fraction p.a. of tool value

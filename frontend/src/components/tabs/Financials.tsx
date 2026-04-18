@@ -510,7 +510,7 @@ function RiskFxTab({ thresholds }: { thresholds: FinancialThresholds }) {
 
 // ─── Commercial Tab ────────────────────────────────────────────────────────────
 function CommercialTab() {
-  const { state, computed } = useRfq();
+  const { state, computed, dispatch } = useRfq();
   const inp = state.input;
   const cur = inp.currency;
   const { programPnL: pnl, priceStrategy: ps } = computed;
@@ -586,6 +586,21 @@ function CommercialTab() {
             <div className="flex justify-between"><span className="text-slate-400">LD cap value</span><span className="font-mono text-red-300">{K(ldCapValue)} {cur}</span></div>
             <div className="flex justify-between"><span className="text-slate-400">As % of revenue</span><span className="font-mono text-slate-300">{fmtPct(inp.ldCapPct)}</span></div>
           </div>
+        </div>
+      </div>
+
+      {/* Tax Rate */}
+      <div className="bg-slate-800/60 rounded-lg p-4">
+        <SectionHeader title="Corporate Tax Rate" />
+        <div className="flex items-center gap-4 text-sm">
+          <label className="text-slate-400">CIT Rate (%)</label>
+          <input
+            type="number" min={0} max={60} step={0.5}
+            value={+(inp.taxRate * 100).toFixed(2)}
+            onChange={e => dispatch({ type: 'SET_INPUT', payload: { taxRate: (parseFloat(e.target.value) || 0) / 100 } })}
+            className="w-24 bg-slate-900 border border-slate-600 rounded px-2 py-1 text-slate-200 font-mono text-right focus:outline-none focus:border-blue-500"
+          />
+          <span className="text-slate-500 text-xs">Default: 19% (Polish CIT). Affects tax shield and NPV.</span>
         </div>
       </div>
 
