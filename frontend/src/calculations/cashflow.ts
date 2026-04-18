@@ -24,16 +24,10 @@ export function calcCashflow(pnl: YearPnL[], wc: YearWC[], inp: RfqInput): YearC
   let lossCarryForward = 0;
 
   return pnl.map((y, idx) => {
-    // Apply loss carry-forward: taxable income reduced by accumulated losses
+    // Apply loss carry-forward then update bucket
     const taxableEbit = y.ebit - lossCarryForward;
     const taxPaid = safe(Math.max(0, taxableEbit) * TAX_RATE);
-
-    // Update carry-forward: consume it when profitable, accumulate when in loss
-    if (y.ebit >= 0) {
-      lossCarryForward = safe(Math.max(0, lossCarryForward - y.ebit));
-    } else {
-      lossCarryForward = safe(lossCarryForward + Math.abs(y.ebit));
-    }
+    lossCarryForward = safe(Math.max(0, lossCarryForward - y.ebit));
 
     const deltaWC  = wc[idx]?.deltaWC ?? 0;
     const capex    = idx === 0 ? capexY1 : 0;

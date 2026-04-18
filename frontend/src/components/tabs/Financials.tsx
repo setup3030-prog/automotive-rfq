@@ -24,9 +24,6 @@ const SUB_TABS: { id: SubTab; label: string }[] = [
   { id: 'commercial', label: '6. Commercial' },
 ];
 
-function tlToHighlight(tl: TrafficLight): 'green' | 'yellow' | 'red' {
-  return tl;
-}
 
 const M = (v: number) => `${(v / 1_000_000).toFixed(2)}M`;
 const K = (v: number) => v >= 1_000_000 ? M(v) : v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(Math.round(v));
@@ -84,7 +81,7 @@ function OverviewTab({ thresholds, onEditThresholds }: { thresholds: FinancialTh
           still_meets_hurdle: r.stillMeetsHurdle,
         })),
         fx_summary: {
-          net_open_str: `${fmtNum(fx.netOpenEur, 0)} EUR`,
+          net_open_str: `${fmtNum(fx.netUnhedgedEur, 0)} EUR`,
           natural_hedge_str: fmtPct(fx.naturalHedgePct / 100),
           hedge_ratio_str: fmtPct(inp.fxHedgeRatio),
           margin_plus_str: `+${fx.marginImpactFxPlus10Pp.toFixed(2)} pp`,
@@ -140,13 +137,13 @@ function OverviewTab({ thresholds, onEditThresholds }: { thresholds: FinancialTh
 
       {/* KPI Grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <KpiCard label="Program NPV" value={`${K(npv.npv)} ${cur}`} highlight={tlToHighlight(flagNpv(npv.npv))} sub="discounted at WACC" />
-        <KpiCard label="IRR" value={npv.irr !== null ? fmtPct(npv.irr) : 'N/A'} highlight={tlToHighlight(flagIrr(npv.irr, thresholds))} sub={`hurdle ${fmtPct(thresholds.hurdleIrr)}`} />
-        <KpiCard label="Payback" value={npv.paybackMonths !== null ? `${npv.paybackMonths.toFixed(0)} mo` : 'N/A'} highlight={tlToHighlight(flagPayback(npv.paybackMonths, thresholds))} sub={`hurdle ${thresholds.hurdlePaybackMonths} mo`} />
-        <KpiCard label={`ROCE Y${npv.y3Idx + 1}`} value={fmtPct(npv.roceY3)} highlight={tlToHighlight(flagRoce(npv.roceY3, thresholds))} sub={`hurdle ${fmtPct(thresholds.hurdleRoce)}`} />
-        <KpiCard label="Peak Working Capital" value={`${K(peakWC)} ${cur}`} highlight={tlToHighlight(flagWcIntensity(peakWC, peakRevenue, thresholds))} sub="max over lifecycle" />
+        <KpiCard label="Program NPV" value={`${K(npv.npv)} ${cur}`} highlight={(flagNpv(npv.npv))} sub="discounted at WACC" />
+        <KpiCard label="IRR" value={npv.irr !== null ? fmtPct(npv.irr) : 'N/A'} highlight={(flagIrr(npv.irr, thresholds))} sub={`hurdle ${fmtPct(thresholds.hurdleIrr)}`} />
+        <KpiCard label="Payback" value={npv.paybackMonths !== null ? `${npv.paybackMonths.toFixed(0)} mo` : 'N/A'} highlight={(flagPayback(npv.paybackMonths, thresholds))} sub={`hurdle ${thresholds.hurdlePaybackMonths} mo`} />
+        <KpiCard label={`ROCE Y${npv.y3Idx + 1}`} value={fmtPct(npv.roceY3)} highlight={(flagRoce(npv.roceY3, thresholds))} sub={`hurdle ${fmtPct(thresholds.hurdleRoce)}`} />
+        <KpiCard label="Peak Working Capital" value={`${K(peakWC)} ${cur}`} highlight={(flagWcIntensity(peakWC, peakRevenue, thresholds))} sub="max over lifecycle" />
         <KpiCard label="Tooling Exposure" value={`${K(toolingExposure)} ${cur}`} highlight="none" sub={inp.toolOwnershipType} />
-        <KpiCard label="Avg GM Y1–3" value={fmtPct(avgGmY13)} highlight={tlToHighlight(flagGm(avgGmY13, thresholds))} sub="gross margin" />
+        <KpiCard label="Avg GM Y1–3" value={fmtPct(avgGmY13)} highlight={(flagGm(avgGmY13, thresholds))} sub="gross margin" />
         <KpiCard label="Total EBITDA" value={`${K(totalEbitda)} ${cur}`} highlight="blue" sub="lifecycle sum" />
       </div>
 
@@ -428,7 +425,7 @@ function RiskFxTab({ thresholds }: { thresholds: FinancialThresholds }) {
 
   const baseNpv = npv.npv;
 
-  const fxLevel = Math.abs(fx.netOpenEur) / Math.max(fx.revenueEur, 1);
+  const fxLevel = Math.abs(fx.netUnhedgedEur) / Math.max(fx.revenueEur, 1);
   const fxBadge = fxLevel < 0.1 ? 'LOW' : fxLevel < 0.25 ? 'MEDIUM' : 'HIGH';
   const fxBadgeColor = fxLevel < 0.1 ? 'text-green-400 bg-green-900/30 border-green-700' : fxLevel < 0.25 ? 'text-yellow-400 bg-yellow-900/30 border-yellow-700' : 'text-red-400 bg-red-900/30 border-red-700';
 

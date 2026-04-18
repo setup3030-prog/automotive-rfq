@@ -365,7 +365,7 @@ export interface FinancialRiskScenario {
 export interface FxExposureResult {
   revenueEur: number;
   costEur: number;
-  netOpenEur: number;
+  netUnhedgedEur: number;
   hedgedEur: number;
   unhedgedEur: number;
   marginImpactFxPlus10Pp: number;

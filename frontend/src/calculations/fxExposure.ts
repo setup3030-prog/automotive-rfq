@@ -3,7 +3,7 @@ import { safe, safeDiv } from '../utils/formatters';
 
 export function calcFxExposure(pnl: YearPnL[], inp: RfqInput): FxExposureResult {
   if (pnl.length === 0) {
-    return { revenueEur: 0, costEur: 0, netOpenEur: 0, hedgedEur: 0, unhedgedEur: 0, marginImpactFxPlus10Pp: 0, marginImpactFxMinus10Pp: 0, naturalHedgePct: 0 };
+    return { revenueEur: 0, costEur: 0, netUnhedgedEur: 0, hedgedEur: 0, unhedgedEur: 0, marginImpactFxPlus10Pp: 0, marginImpactFxMinus10Pp: 0, naturalHedgePct: 0 };
   }
 
   const avgRevenuePln = pnl.reduce((s, y) => s + y.revenue, 0) / pnl.length;
@@ -16,7 +16,6 @@ export function calcFxExposure(pnl: YearPnL[], inp: RfqInput): FxExposureResult 
   const grossOpenEur = safe(revenueEur - costEur);
   const hedgedEur    = safe(grossOpenEur * inp.fxHedgeRatio);
   const unhedgedEur  = safe(grossOpenEur * (1 - inp.fxHedgeRatio));
-  const netOpenEur   = unhedgedEur;
 
   // Impact of ±10% EUR/PLN on annual EBITDA as % of revenue
   const avgRevenue = avgRevenuePln > 0 ? avgRevenuePln : 1;
@@ -26,5 +25,5 @@ export function calcFxExposure(pnl: YearPnL[], inp: RfqInput): FxExposureResult 
   // Natural hedge: how much of revenue EUR is naturally offset by cost EUR
   const naturalHedgePct = safe(Math.min(inp.fxEurShareCost, inp.fxEurShareRevenue) * 100);
 
-  return { revenueEur, costEur, netOpenEur, hedgedEur, unhedgedEur, marginImpactFxPlus10Pp, marginImpactFxMinus10Pp, naturalHedgePct };
+  return { revenueEur, costEur, netUnhedgedEur: unhedgedEur, hedgedEur, unhedgedEur, marginImpactFxPlus10Pp, marginImpactFxMinus10Pp, naturalHedgePct };
 }
