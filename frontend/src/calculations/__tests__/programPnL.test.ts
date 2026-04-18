@@ -65,7 +65,65 @@ describe('calcProgramPnL', () => {
     const shortCurveInp = { ...baseInp, lifecycleYears: 5, volumeCurve: [80, 100] } as unknown as RfqInput;
     const pnl = calcProgramPnL(shortCurveInp, mockCm, mockPs);
     expect(pnl).toHaveLength(5);
-    // Y3,Y4,Y5 should use last value = 100
     expect(pnl[2].volumeUnits).toBe(pnl[4].volumeUnits);
+  });
+
+  // FIX 1 — no tooling double-counting
+  it('supplier mode: cogsToolingAmort=0, depreciation>0', () => {
+    const supplierInp = { ...baseInp, toolOwnershipType: 'supplier' } as unknown as RfqInput;
+    const pnl = calcProgramPnL(supplierInp, mockCm, mockPs);
+    expect(pnl[0].cogsToolingAmort).toBe(0);
+    expect(pnl[0].depreciation).toBeGreaterThan(0);
+  });
+
+  it('customer_amortized mode: cogsToolingAmort>0, depreciation=0', () => {
+    const amortInp = { ...baseInp, toolOwnershipType: 'customer_amortized' } as unknown as RfqInput;
+    const pnl = calcProgramPnL(amortInp, mockCm, mockPs);
+    expect(pnl[0].cogsToolingAmort).toBeGreaterThan(0);
+    expect(pnl[0].depreciation).toBe(0);
+  });
+
+  it('customer_paid mode: both cogsToolingAmort=0 and depreciation=0', () => {
+    const pnl = calcProgramPnL(baseInp, mockCm, mockPs);
+    expect(pnl[0].cogsToolingAmort).toBe(0);
+    expect(pnl[0].depreciation).toBe(0);
+  });
+
+  // FIX 4 — escalation pass-through keeps gross profit neutral
+  it('material escalation raises Y2 cost by ~3%', () => {
+    const escInp = { ...baseInp, escalationMaterial: true, escalationEnergy: false, escalationLaborCpi: false } as unknown as RfqInput;
+    const pnl = calcProgramPnL(escInp, mockCm, mockPs);
+    // Y2 material cost = baseMat * (1.03)^1 * volume vs Y1 (no ramp on Y2)
+    expect(pnl[1].cogsMaterial / pnl[2].cogsMaterial).toBeCloseTo(1 / 1.03, 4);
+  });
+
+  it('with escalation on, Y2 price is higher than Y1 price (pass-through applied)', () => {
+    const escInp = {
+      ...baseInp,
+      lifecycleYears: 2,
+      volumeCurve: [100, 100],
+      escalationMaterial: true,
+      escalationEnergy: true,
+      escalationLaborCpi: true,
+    } as unknown as RfqInput;
+    const pnl = calcProgramPnL(escInp, mockCm, mockPs);
+    // Y2 effective price = revenue / volumeUnits; should be > base price 5.0
+    const y2EffectivePrice = pnl[1].revenue / pnl[1].volumeUnits;
+    expect(y2EffectivePrice).toBeGreaterThan(5.0);
+  });
+
+  it('with escalation off, Y2 price equals Y1 price', () => {
+    const noEscInp = {
+      ...baseInp,
+      lifecycleYears: 2,
+      volumeCurve: [100, 100],
+      escalationMaterial: false,
+      escalationEnergy: false,
+      escalationLaborCpi: false,
+    } as unknown as RfqInput;
+    const pnl = calcProgramPnL(noEscInp, mockCm, mockPs);
+    const y1Price = pnl[0].revenue / pnl[0].volumeUnits;
+    const y2Price = pnl[1].revenue / pnl[1].volumeUnits;
+    expect(y2Price).toBeCloseTo(y1Price, 6);
   });
 });
