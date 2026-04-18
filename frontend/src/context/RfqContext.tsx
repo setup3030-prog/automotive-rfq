@@ -13,6 +13,7 @@ import { calcFinancialRisk } from '../calculations/financialRisk';
 import { calcFxExposure } from '../calculations/fxExposure';
 import type { CostModelResult, PriceStrategyResult, CompetitivenessResult, ScenarioResult, SensitivityResult } from '../types/rfq';
 import { saveToStorage, loadFromStorage } from '../utils/storage';
+import { DEFAULT_THRESHOLDS, type FinancialThresholds } from '../config/financialThresholds';
 
 // ─── Default Values ───────────────────────────────────────────────────────────
 
@@ -80,7 +81,6 @@ const DEFAULT_INPUT: RfqInput = {
   dpoDays: 45,
   dioDays: 30,
   wacc: 0.09,
-  hurdleRate: 0.12,
   toolOwnershipType: 'customer_amortized',
   toolDepreciationYears: 5,
   bankGuaranteePct: 0.008,
@@ -140,6 +140,7 @@ const DEFAULT_STATE: RfqState = {
   scenarios: DEFAULT_SCENARIOS,
   checklist: DEFAULT_CHECKLIST,
   activeTab: 'dashboard',
+  financialThresholds: { ...DEFAULT_THRESHOLDS },
 };
 
 // ─── Actions ──────────────────────────────────────────────────────────────────
@@ -151,6 +152,7 @@ type Action =
   | { type: 'SET_SCENARIO'; payload: { scenario: 'best' | 'realistic' | 'worst'; data: Partial<ScenariosInput['best']> } }
   | { type: 'SET_CHECKLIST'; payload: Partial<NegotiationChecklist> }
   | { type: 'SET_TAB'; payload: TabId }
+  | { type: 'SET_FINANCIAL_THRESHOLDS'; payload: FinancialThresholds }
   | { type: 'LOAD_STATE'; payload: Partial<RfqState> }
   | { type: 'RESET' };
 
@@ -172,6 +174,8 @@ function reducer(state: RfqState, action: Action): RfqState {
       };
     case 'SET_CHECKLIST':
       return { ...state, checklist: { ...state.checklist, ...action.payload } };
+    case 'SET_FINANCIAL_THRESHOLDS':
+      return { ...state, financialThresholds: { ...action.payload } };
     case 'SET_TAB':
       return { ...state, activeTab: action.payload };
     case 'LOAD_STATE':
@@ -187,6 +191,7 @@ function reducer(state: RfqState, action: Action): RfqState {
           worst: { ...DEFAULT_SCENARIOS.worst, ...(action.payload.scenarios?.worst ?? {}) },
         },
         checklist: { ...DEFAULT_CHECKLIST, ...(action.payload.checklist ?? {}) },
+        financialThresholds: { ...DEFAULT_THRESHOLDS, ...(action.payload.financialThresholds ?? {}) },
       };
     case 'RESET':
       return DEFAULT_STATE;
@@ -244,8 +249,8 @@ export function RfqProvider({ children }: { children: React.ReactNode }) {
     const programPnL = calcProgramPnL(state.input, costModel, priceStrategy);
     const workingCapital = calcWorkingCapital(programPnL, state.input);
     const cashflow = calcCashflow(programPnL, workingCapital, state.input);
-    const npv = calcNpv(cashflow, programPnL, workingCapital, state.input, state.input.hurdleRate);
-    const financialRisk = calcFinancialRisk(state.input, costModel, priceStrategy);
+    const npv = calcNpv(cashflow, programPnL, workingCapital, state.input, state.financialThresholds.hurdleIrr);
+    const financialRisk = calcFinancialRisk(state.input, costModel, priceStrategy, state.financialThresholds.hurdleIrr);
     const fxExposure = calcFxExposure(programPnL, state.input);
     return { costModel, priceStrategy, competitiveness, scenarios, sensitivity, programPnL, workingCapital, cashflow, npv, financialRisk, fxExposure };
   }, [state.input, state.priceMargins, state.competitiveness, state.scenarios]);

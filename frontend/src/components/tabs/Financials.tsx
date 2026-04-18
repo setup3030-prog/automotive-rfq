@@ -10,7 +10,6 @@ import { SectionHeader } from '../ui/SectionHeader';
 import { fmtNum, fmtPct, fmtPrice } from '../../utils/formatters';
 import { peakNetWC } from '../../calculations/workingCapital';
 import {
-  loadThresholds, saveThresholds, DEFAULT_THRESHOLDS,
   flagIrr, flagPayback, flagRoce, flagGm, flagNpv, flagWcIntensity,
   type FinancialThresholds, type TrafficLight,
 } from '../../config/financialThresholds';
@@ -91,7 +90,7 @@ function OverviewTab({ thresholds, onEditThresholds }: { thresholds: FinancialTh
           margin_plus_str: `+${fx.marginImpactFxPlus10Pp.toFixed(2)} pp`,
         },
         conditions: [
-          ...(npv.meetsHurdle ? [] : [`IRR ${npv.irr !== null ? fmtPct(npv.irr) : 'N/A'} below hurdle ${fmtPct(inp.hurdleRate)}`]),
+          ...(npv.meetsHurdle ? [] : [`IRR ${npv.irr !== null ? fmtPct(npv.irr) : 'N/A'} below hurdle ${fmtPct(thresholds.hurdleIrr)}`]),
           ...(avgGmY13 < thresholds.gmWarnPct ? [`Avg GM Y1-3 (${fmtPct(avgGmY13)}) below warning threshold`] : []),
           ...(peakWC > y2Revenue * thresholds.wcIntensityWarn ? [`High WC intensity — peak WC ${K(peakWC)} ${cur}`] : []),
         ],
@@ -136,13 +135,13 @@ function OverviewTab({ thresholds, onEditThresholds }: { thresholds: FinancialTh
         <span className={`text-xl font-bold ${npv.meetsHurdle ? 'text-green-300' : 'text-red-300'}`}>
           {npv.meetsHurdle ? '✅ GO — Meets Hurdle' : '❌ NO GO — Below Hurdle'}
         </span>
-        <span className="text-xs text-slate-400">IRR ≥ {fmtPct(inp.hurdleRate)} AND NPV &gt; 0</span>
+        <span className="text-xs text-slate-400">IRR ≥ {fmtPct(thresholds.hurdleIrr)} AND NPV &gt; 0</span>
       </div>
 
       {/* KPI Grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <KpiCard label="Program NPV" value={`${K(npv.npv)} ${cur}`} highlight={tlToHighlight(flagNpv(npv.npv))} sub="discounted at WACC" />
-        <KpiCard label="IRR" value={npv.irr !== null ? fmtPct(npv.irr) : 'N/A'} highlight={tlToHighlight(flagIrr(npv.irr, thresholds))} sub={`hurdle ${fmtPct(inp.hurdleRate)}`} />
+        <KpiCard label="IRR" value={npv.irr !== null ? fmtPct(npv.irr) : 'N/A'} highlight={tlToHighlight(flagIrr(npv.irr, thresholds))} sub={`hurdle ${fmtPct(thresholds.hurdleIrr)}`} />
         <KpiCard label="Payback" value={npv.paybackMonths !== null ? `${npv.paybackMonths.toFixed(0)} mo` : 'N/A'} highlight={tlToHighlight(flagPayback(npv.paybackMonths, thresholds))} sub={`hurdle ${thresholds.hurdlePaybackMonths} mo`} />
         <KpiCard label="ROCE Y3" value={fmtPct(npv.roceY3)} highlight={tlToHighlight(flagRoce(npv.roceY3, thresholds))} sub={`hurdle ${fmtPct(thresholds.hurdleRoce)}`} />
         <KpiCard label="Peak Working Capital" value={`${K(peakWC)} ${cur}`} highlight={tlToHighlight(flagWcIntensity(peakWC, y2Revenue, thresholds))} sub="max over lifecycle" />
@@ -664,12 +663,12 @@ function ThresholdsModal({ thresholds, onSave, onClose }: { thresholds: Financia
 // ─── Main Financials component ─────────────────────────────────────────────────
 export function Financials() {
   const [subTab, setSubTab] = useState<SubTab>('overview');
-  const [thresholds, setThresholds] = useState<FinancialThresholds>(() => loadThresholds());
   const [showThresholds, setShowThresholds] = useState(false);
+  const { state, dispatch } = useRfq();
+  const thresholds = state.financialThresholds;
 
   function handleSaveThresholds(t: FinancialThresholds) {
-    saveThresholds(t);
-    setThresholds(t);
+    dispatch({ type: 'SET_FINANCIAL_THRESHOLDS', payload: t });
   }
 
   return (

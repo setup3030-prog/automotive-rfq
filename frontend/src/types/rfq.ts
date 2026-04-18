@@ -1,3 +1,5 @@
+import type { FinancialThresholds } from '../config/financialThresholds';
+
 // ─── RFQ Input State ─────────────────────────────────────────────────────────
 
 export interface RfqInput {
@@ -75,7 +77,6 @@ export interface RfqInput {
   dpoDays: number;                    // payables days outstanding
   dioDays: number;                    // inventory days outstanding
   wacc: number;                       // fraction 0–1
-  hurdleRate: number;                 // fraction 0–1
   toolOwnershipType: 'customer_paid' | 'customer_amortized' | 'supplier';
   toolDepreciationYears: number;
   bankGuaranteePct: number;           // fraction p.a. of tool value
@@ -157,6 +158,7 @@ export interface RfqState {
   scenarios: ScenariosInput;
   checklist: NegotiationChecklist;
   activeTab: TabId;
+  financialThresholds: FinancialThresholds;
 }
 
 export type TabId =

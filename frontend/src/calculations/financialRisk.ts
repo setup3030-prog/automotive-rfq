@@ -22,7 +22,8 @@ function runScenario(inp: RfqInput, cm: CostModelResult, ps: PriceStrategyResult
 export function calcFinancialRisk(
   inp: RfqInput,
   cm: CostModelResult,
-  ps: PriceStrategyResult
+  ps: PriceStrategyResult,
+  hurdleIrr: number
 ): FinancialRiskScenario[] {
   const base = runScenario(inp, cm, ps);
 
@@ -45,7 +46,7 @@ export function calcFinancialRisk(
       deltaNpv: safe(s.npv - base.npv),
       deltaEbitdaY2: safe(s.ebitdaY2 - base.ebitdaY2),
       newIrr: s.irr,
-      stillMeetsHurdle: s.irr !== null && s.irr >= inp.hurdleRate && s.npv > 0,
+      stillMeetsHurdle: s.irr !== null && s.irr >= hurdleIrr && s.npv > 0,
     });
   }
 
@@ -57,7 +58,7 @@ export function calcFinancialRisk(
       deltaNpv: safe(s.npv - base.npv),
       deltaEbitdaY2: safe(s.ebitdaY2 - base.ebitdaY2),
       newIrr: s.irr,
-      stillMeetsHurdle: s.irr !== null && s.irr >= inp.hurdleRate && s.npv > 0,
+      stillMeetsHurdle: s.irr !== null && s.irr >= hurdleIrr && s.npv > 0,
     });
   }
 
@@ -75,7 +76,7 @@ export function calcFinancialRisk(
       deltaNpv: safe(s.npv - base.npv),
       deltaEbitdaY2: safe(s.ebitdaY2 - base.ebitdaY2),
       newIrr: s.irr,
-      stillMeetsHurdle: s.irr !== null && s.irr >= inp.hurdleRate && s.npv > 0,
+      stillMeetsHurdle: s.irr !== null && s.irr >= hurdleIrr && s.npv > 0,
     });
   }
 
@@ -92,7 +93,7 @@ export function calcFinancialRisk(
       deltaNpv: safe(s.npv - base.npv),
       deltaEbitdaY2: safe(s.ebitdaY2 - base.ebitdaY2),
       newIrr: s.irr,
-      stillMeetsHurdle: s.irr !== null && s.irr >= inp.hurdleRate && s.npv > 0,
+      stillMeetsHurdle: s.irr !== null && s.irr >= hurdleIrr && s.npv > 0,
     });
   }
 
@@ -115,7 +116,7 @@ export function calcFinancialRisk(
       deltaNpv: safe(s.npv - base.npv),
       deltaEbitdaY2: safe(s.ebitdaY2 - base.ebitdaY2),
       newIrr: s.irr,
-      stillMeetsHurdle: s.irr !== null && s.irr >= inp.hurdleRate && s.npv > 0,
+      stillMeetsHurdle: s.irr !== null && s.irr >= hurdleIrr && s.npv > 0,
     });
   }
 
@@ -136,7 +137,7 @@ export function calcFinancialRisk(
       deltaNpv: safe(s.npv - base.npv),
       deltaEbitdaY2: safe(s.ebitdaY2 - base.ebitdaY2),
       newIrr: s.irr,
-      stillMeetsHurdle: s.irr !== null && s.irr >= inp.hurdleRate && s.npv > 0,
+      stillMeetsHurdle: s.irr !== null && s.irr >= hurdleIrr && s.npv > 0,
     });
   }
 
@@ -149,7 +150,7 @@ export function calcFinancialRisk(
       deltaNpv: safe(s.npv - base.npv),
       deltaEbitdaY2: safe(s.ebitdaY2 - base.ebitdaY2),
       newIrr: s.irr,
-      stillMeetsHurdle: s.irr !== null && s.irr >= inp.hurdleRate && s.npv > 0,
+      stillMeetsHurdle: s.irr !== null && s.irr >= hurdleIrr && s.npv > 0,
     });
   }
 
