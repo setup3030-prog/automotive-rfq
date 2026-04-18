@@ -21,9 +21,20 @@ export function calcCashflow(pnl: YearPnL[], wc: YearWC[], inp: RfqInput): YearC
   const capexY1 = safe(toolingCapex + preSopBurn);
 
   let cumulativeFCF = 0;
+  let lossCarryForward = 0;
 
   return pnl.map((y, idx) => {
-    const taxPaid = safe(Math.max(0, y.ebit) * TAX_RATE);
+    // Apply loss carry-forward: taxable income reduced by accumulated losses
+    const taxableEbit = y.ebit - lossCarryForward;
+    const taxPaid = safe(Math.max(0, taxableEbit) * TAX_RATE);
+
+    // Update carry-forward: consume it when profitable, accumulate when in loss
+    if (y.ebit >= 0) {
+      lossCarryForward = safe(Math.max(0, lossCarryForward - y.ebit));
+    } else {
+      lossCarryForward = safe(lossCarryForward + Math.abs(y.ebit));
+    }
+
     const deltaWC  = wc[idx]?.deltaWC ?? 0;
     const capex    = idx === 0 ? capexY1 : 0;
 
@@ -31,6 +42,6 @@ export function calcCashflow(pnl: YearPnL[], wc: YearWC[], inp: RfqInput): YearC
     const freeCF      = safe(operatingCF - capex);
     cumulativeFCF = safe(cumulativeFCF + freeCF);
 
-    return { year: y.year, ebitda: y.ebitda, taxPaid, deltaWC, capex, operatingCF, freeCF, cumulativeFCF };
+    return { year: y.year, ebitda: y.ebitda, taxPaid, deltaWC, capex, operatingCF, freeCF, cumulativeFCF, lossCarryForward };
   });
 }

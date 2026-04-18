@@ -341,6 +341,7 @@ export interface YearCF {
   operatingCF: number;
   freeCF: number;
   cumulativeFCF: number;
+  lossCarryForward: number;  // remaining tax loss carry-forward at end of year
 }
 
 export interface NpvResult {
