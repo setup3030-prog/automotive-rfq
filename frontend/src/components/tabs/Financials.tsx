@@ -143,7 +143,7 @@ function OverviewTab({ thresholds, onEditThresholds }: { thresholds: FinancialTh
         <KpiCard label="Program NPV" value={`${K(npv.npv)} ${cur}`} highlight={tlToHighlight(flagNpv(npv.npv))} sub="discounted at WACC" />
         <KpiCard label="IRR" value={npv.irr !== null ? fmtPct(npv.irr) : 'N/A'} highlight={tlToHighlight(flagIrr(npv.irr, thresholds))} sub={`hurdle ${fmtPct(thresholds.hurdleIrr)}`} />
         <KpiCard label="Payback" value={npv.paybackMonths !== null ? `${npv.paybackMonths.toFixed(0)} mo` : 'N/A'} highlight={tlToHighlight(flagPayback(npv.paybackMonths, thresholds))} sub={`hurdle ${thresholds.hurdlePaybackMonths} mo`} />
-        <KpiCard label="ROCE Y3" value={fmtPct(npv.roceY3)} highlight={tlToHighlight(flagRoce(npv.roceY3, thresholds))} sub={`hurdle ${fmtPct(thresholds.hurdleRoce)}`} />
+        <KpiCard label={`ROCE Y${npv.y3Idx + 1}`} value={fmtPct(npv.roceY3)} highlight={tlToHighlight(flagRoce(npv.roceY3, thresholds))} sub={`hurdle ${fmtPct(thresholds.hurdleRoce)}`} />
         <KpiCard label="Peak Working Capital" value={`${K(peakWC)} ${cur}`} highlight={tlToHighlight(flagWcIntensity(peakWC, y2Revenue, thresholds))} sub="max over lifecycle" />
         <KpiCard label="Tooling Exposure" value={`${K(toolingExposure)} ${cur}`} highlight="none" sub={inp.toolOwnershipType} />
         <KpiCard label="Avg GM Y1–3" value={fmtPct(avgGmY13)} highlight={tlToHighlight(flagGm(avgGmY13, thresholds))} sub="gross margin" />
