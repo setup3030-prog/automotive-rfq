@@ -39,7 +39,7 @@ function OverviewTab({ thresholds, onEditThresholds }: { thresholds: FinancialTh
   const cur = inp.currency;
 
   const peakWC = peakNetWC(workingCapital);
-  const y2Revenue = programPnL[1]?.revenue ?? programPnL[0]?.revenue ?? 1;
+  const peakRevenue = Math.max(...programPnL.map(y => y.revenue), 1);
   const avgGmY13 = programPnL.slice(0, 3).reduce((s, y) => s + y.grossMarginPct, 0) / Math.min(3, programPnL.length);
   const totalEbitda = cashflow.reduce((s, y) => s + y.ebitda, 0);
   const toolingExposure = inp.toolOwnershipType === 'supplier' ? inp.toolCost : inp.toolOwnershipType === 'customer_amortized' ? inp.toolCost * 0.5 : 0;
@@ -69,7 +69,7 @@ function OverviewTab({ thresholds, onEditThresholds }: { thresholds: FinancialTh
         irr_flag: flagIrr(npv.irr, thresholds),
         payback_flag: flagPayback(npv.paybackMonths, thresholds),
         roce_flag: flagRoce(npv.roceY3, thresholds),
-        wc_flag: flagWcIntensity(peakWC, y2Revenue, thresholds),
+        wc_flag: flagWcIntensity(peakWC, peakRevenue, thresholds),
         meets_hurdle: npv.meetsHurdle,
         pnl_years: programPnL.map(y => ({
           year: `Y${y.year}`,
@@ -92,7 +92,7 @@ function OverviewTab({ thresholds, onEditThresholds }: { thresholds: FinancialTh
         conditions: [
           ...(npv.meetsHurdle ? [] : [`IRR ${npv.irr !== null ? fmtPct(npv.irr) : 'N/A'} below hurdle ${fmtPct(thresholds.hurdleIrr)}`]),
           ...(avgGmY13 < thresholds.gmWarnPct ? [`Avg GM Y1-3 (${fmtPct(avgGmY13)}) below warning threshold`] : []),
-          ...(peakWC > y2Revenue * thresholds.wcIntensityWarn ? [`High WC intensity — peak WC ${K(peakWC)} ${cur}`] : []),
+          ...(peakWC > peakRevenue * thresholds.wcIntensityWarn ? [`High WC intensity — peak WC ${K(peakWC)} ${cur}`] : []),
         ],
       };
       const blob = await exportCfoPDF(payload);
@@ -144,7 +144,7 @@ function OverviewTab({ thresholds, onEditThresholds }: { thresholds: FinancialTh
         <KpiCard label="IRR" value={npv.irr !== null ? fmtPct(npv.irr) : 'N/A'} highlight={tlToHighlight(flagIrr(npv.irr, thresholds))} sub={`hurdle ${fmtPct(thresholds.hurdleIrr)}`} />
         <KpiCard label="Payback" value={npv.paybackMonths !== null ? `${npv.paybackMonths.toFixed(0)} mo` : 'N/A'} highlight={tlToHighlight(flagPayback(npv.paybackMonths, thresholds))} sub={`hurdle ${thresholds.hurdlePaybackMonths} mo`} />
         <KpiCard label={`ROCE Y${npv.y3Idx + 1}`} value={fmtPct(npv.roceY3)} highlight={tlToHighlight(flagRoce(npv.roceY3, thresholds))} sub={`hurdle ${fmtPct(thresholds.hurdleRoce)}`} />
-        <KpiCard label="Peak Working Capital" value={`${K(peakWC)} ${cur}`} highlight={tlToHighlight(flagWcIntensity(peakWC, y2Revenue, thresholds))} sub="max over lifecycle" />
+        <KpiCard label="Peak Working Capital" value={`${K(peakWC)} ${cur}`} highlight={tlToHighlight(flagWcIntensity(peakWC, peakRevenue, thresholds))} sub="max over lifecycle" />
         <KpiCard label="Tooling Exposure" value={`${K(toolingExposure)} ${cur}`} highlight="none" sub={inp.toolOwnershipType} />
         <KpiCard label="Avg GM Y1–3" value={fmtPct(avgGmY13)} highlight={tlToHighlight(flagGm(avgGmY13, thresholds))} sub="gross margin" />
         <KpiCard label="Total EBITDA" value={`${K(totalEbitda)} ${cur}`} highlight="blue" sub="lifecycle sum" />
@@ -262,9 +262,9 @@ function CashWCTab() {
   const cur = state.input.currency;
   const inp = state.input;
 
-  const y2Revenue = computed.programPnL[1]?.revenue ?? computed.programPnL[0]?.revenue ?? 1;
+  const peakRevenue = Math.max(...computed.programPnL.map(y => y.revenue), 1);
   const peakWC = peakNetWC(wc);
-  const highWC = peakWC > y2Revenue * 0.25;
+  const highWC = peakWC > peakRevenue * 0.25;
 
   const chartData = cf.map((y, i) => ({
     year: `Y${y.year}`,
