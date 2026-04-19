@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useRef } from 'react';
 import { RfqProvider, useRfq } from './context/RfqContext';
 import { fmtPrice } from './utils/formatters';
+import { exportJson, importJson } from './utils/storage';
 import { Dashboard } from './components/tabs/Dashboard';
 import { RfqInput } from './components/tabs/RfqInput';
 import { CostModel } from './components/tabs/CostModel';
@@ -10,7 +11,6 @@ import { NegotiationSupport } from './components/tabs/NegotiationSupport';
 import { Scenarios } from './components/tabs/Scenarios';
 import { Sensitivity } from './components/tabs/Sensitivity';
 import { Financials } from './components/tabs/Financials';
-import { QuoteHistory } from './components/ui/QuoteHistory';
 import type { TabId } from './types/rfq';
 
 const TABS: { id: TabId; label: string; short: string }[] = [
@@ -42,14 +42,33 @@ function TabContent({ active }: { active: TabId }) {
 function AppShell() {
   const { state, dispatch, computed } = useRfq();
   const active = state.activeTab;
-  const [showHistory, setShowHistory] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const inp = state.input;
   const cm = computed.costModel;
   const ps = computed.priceStrategy;
 
+  function handleSave() {
+    exportJson(state);
+  }
+
+  function handleOpen() {
+    fileInputRef.current?.click();
+  }
+
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const data = await importJson(file);
+      dispatch({ type: 'LOAD_STATE', payload: data });
+    } catch {
+      alert('Nie można otworzyć pliku. Upewnij się, że to prawidłowy plik wyceny (.json).');
+    }
+    e.target.value = '';
+  }
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
-      {showHistory && <QuoteHistory onClose={() => setShowHistory(false)} />}
       {/* Top header */}
       <header className="bg-slate-900 border-b border-slate-800 px-4 py-3 flex items-center justify-between gap-4 flex-wrap print:hidden">
         <div className="flex items-center gap-3">
@@ -59,12 +78,25 @@ function AppShell() {
             <div className="text-xs text-slate-400">{inp.customerName} · {inp.partNumber}</div>
           </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".json"
+            className="hidden"
+            onChange={handleFileChange}
+          />
           <button
-            onClick={() => setShowHistory(true)}
+            onClick={handleSave}
+            className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-600 border border-emerald-600 text-white text-xs rounded font-medium transition-colors"
+          >
+            ↓ Zapisz wycenę
+          </button>
+          <button
+            onClick={handleOpen}
             className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 border border-slate-600 text-slate-300 text-xs rounded font-medium transition-colors"
           >
-            Historia wycen
+            ↑ Otwórz wycenę
           </button>
         </div>
         <div className="flex items-center gap-4 text-xs font-mono">
