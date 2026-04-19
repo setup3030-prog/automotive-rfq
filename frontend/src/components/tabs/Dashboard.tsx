@@ -6,7 +6,7 @@ import { SectionHeader } from '../ui/SectionHeader';
 import { CostBreakdownChart } from '../charts/CostBreakdownChart';
 import { PriceComparisonChart } from '../charts/PriceComparisonChart';
 import { fmtPrice, fmtPct, fmtNum } from '../../utils/formatters';
-import { exportPDF } from '../../api/client';
+import { exportPDF, exportWord } from '../../api/client';
 
 export function Dashboard() {
   const { state, computed, dispatch } = useRfq();
@@ -44,42 +44,45 @@ export function Dashboard() {
   // PDF export handler
   const [pdfLoading, setPdfLoading] = useState(false);
   const [pdfError, setPdfError] = useState<string | null>(null);
+  const [wordLoading, setWordLoading] = useState(false);
+  const [wordError, setWordError] = useState<string | null>(null);
+
+  const _buildExportPayload = () => ({
+    rfq_name: inp.projectName,
+    customer: inp.customerName,
+    part_number: inp.partNumber,
+    part_description: inp.partDescription,
+    quoting_engineer: inp.quotingEngineer,
+    rfq_date: inp.rfqDate,
+    currency: inp.currency,
+    annual_volume: inp.volMid,
+    cycle_time_s: inp.cycleTimeActual,
+    cavities: inp.cavities,
+    oee_pct: inp.oee * 100,
+    scrap_rate_pct: inp.scrapRate * 100,
+    machine_cost: cm.machine.totalMachineCost,
+    material_cost: cm.material.totalMaterialCost,
+    tooling_cost: cm.tooling.totalToolingCost,
+    labor_cost: cm.labor.totalLaborCost,
+    energy_cost: cm.energy.totalEnergyCost,
+    overhead_cost: cm.overhead.totalOverhead,
+    logistics_packaging: inp.packagingCost + inp.logisticsCost,
+    total_cost: cm.totalMfgCost,
+    walk_away_price: ps.walkAway.price,
+    target_price_calc: ps.target.price,
+    aggressive_price: ps.aggressive.price,
+    walk_away_margin: ps.walkAway.margin,
+    target_margin: ps.target.margin,
+    aggressive_margin: ps.aggressive.margin,
+    customer_target_price: inp.targetPrice || null,
+    decision: decision.text,
+  });
 
   const handleExportPDF = async () => {
     setPdfLoading(true);
     setPdfError(null);
     try {
-      const payload = {
-        rfq_name: inp.projectName,
-        customer: inp.customerName,
-        part_number: inp.partNumber,
-        part_description: inp.partDescription,
-        quoting_engineer: inp.quotingEngineer,
-        rfq_date: inp.rfqDate,
-        currency: inp.currency,
-        annual_volume: inp.volMid,
-        cycle_time_s: inp.cycleTimeActual,
-        cavities: inp.cavities,
-        oee_pct: inp.oee * 100,
-        scrap_rate_pct: inp.scrapRate * 100,
-        machine_cost: cm.machine.totalMachineCost,
-        material_cost: cm.material.totalMaterialCost,
-        tooling_cost: cm.tooling.totalToolingCost,
-        labor_cost: cm.labor.totalLaborCost,
-        energy_cost: cm.energy.totalEnergyCost,
-        overhead_cost: cm.overhead.totalOverhead,
-        logistics_packaging: inp.packagingCost + inp.logisticsCost,
-        total_cost: cm.totalMfgCost,
-        walk_away_price: ps.walkAway.price,
-        target_price_calc: ps.target.price,
-        aggressive_price: ps.aggressive.price,
-        walk_away_margin: ps.walkAway.margin,
-        target_margin: ps.target.margin,
-        aggressive_margin: ps.aggressive.margin,
-        customer_target_price: inp.targetPrice || null,
-        decision: decision.text,
-      };
-      const blob = await exportPDF(payload);
+      const blob = await exportPDF(_buildExportPayload());
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -90,6 +93,24 @@ export function Dashboard() {
       setPdfError(err instanceof Error ? err.message : 'PDF export failed');
     } finally {
       setPdfLoading(false);
+    }
+  };
+
+  const handleExportWord = async () => {
+    setWordLoading(true);
+    setWordError(null);
+    try {
+      const blob = await exportWord(_buildExportPayload());
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `RFQ_${(inp.projectName || 'quote').replace(/\s+/g, '_')}.docx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err: unknown) {
+      setWordError(err instanceof Error ? err.message : 'Word export failed');
+    } finally {
+      setWordLoading(false);
     }
   };
 
@@ -117,9 +138,19 @@ export function Dashboard() {
           >
             {pdfLoading ? 'Generating…' : 'Download PDF Quote'}
           </button>
+          <button
+            onClick={handleExportWord}
+            disabled={wordLoading}
+            className="px-3 py-1.5 bg-indigo-700 hover:bg-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed border border-indigo-600 text-white text-xs rounded font-medium transition-colors"
+          >
+            {wordLoading ? 'Generating…' : 'Download Word'}
+          </button>
         </div>
         {pdfError && (
           <div className="w-full text-xs text-red-400 mt-1 print:hidden">{pdfError}</div>
+        )}
+        {wordError && (
+          <div className="w-full text-xs text-red-400 mt-1 print:hidden">{wordError}</div>
         )}
       </div>
 

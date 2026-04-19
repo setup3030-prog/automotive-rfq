@@ -63,6 +63,28 @@ export async function exportPDF(data) {
 }
 
 /**
+ * Export Word (.docx) quote — returns a Blob.
+ * Uses the same payload as exportPDF (PDFExportRequest).
+ */
+export async function exportWord(data) {
+  const url = `${API_BASE}/api/v1/rfq/export-word`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    let detail = `HTTP ${res.status}`;
+    try {
+      const err = await res.json();
+      if (err.detail) detail = String(err.detail);
+    } catch (_) {}
+    throw new Error(detail);
+  }
+  return res.blob();
+}
+
+/**
  * Export CFO internal summary PDF — returns a Blob (binary PDF).
  */
 export async function exportCfoPDF(data) {

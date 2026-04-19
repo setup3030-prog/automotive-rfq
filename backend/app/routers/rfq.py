@@ -19,6 +19,7 @@ from app.services.decision import calculate_decision
 from app.services.sensitivity import run_sensitivity_analysis
 from app.services.recommendations import generate_recommendations
 from app.services.pdf_export import generate_quote_pdf, generate_cfo_summary_pdf
+from app.services.word_export import generate_quote_docx
 from app.services.competitor_ai import run_competitor_analysis
 
 router = APIRouter()
@@ -87,6 +88,25 @@ def export_pdf(payload: PDFExportRequest) -> StreamingResponse:
         BytesIO(pdf_bytes),
         media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.post(
+    "/export-word",
+    summary="Export RFQ quote as Word (.docx)",
+    response_class=StreamingResponse,
+)
+def export_word(payload: PDFExportRequest) -> StreamingResponse:
+    try:
+        docx_bytes = generate_quote_docx(payload.model_dump())
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Word export error: {exc}")
+
+    rfq_slug = (payload.rfq_name or "quote").replace(" ", "_")[:40]
+    return StreamingResponse(
+        BytesIO(docx_bytes),
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f'attachment; filename="RFQ_{rfq_slug}.docx"'},
     )
 
 
