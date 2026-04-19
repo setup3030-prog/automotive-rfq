@@ -48,7 +48,7 @@ function AppShell() {
   const ps = computed.priceStrategy;
 
   function handleSave() {
-    exportJson(state);
+    void exportJson(state);
   }
 
   function handleOpen() {

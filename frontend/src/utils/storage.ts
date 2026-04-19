@@ -59,12 +59,32 @@ export function loadFromStorage(): Partial<RfqState> | null {
   }
 }
 
-export function exportJson(state: RfqState): void {
-  const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+export async function exportJson(state: RfqState): Promise<void> {
+  const filename = `rfq-${state.input.partNumber || 'export'}-${new Date().toISOString().slice(0, 10)}.json`;
+  const json = JSON.stringify(state, null, 2);
+
+  // File System Access API — native "Save As" dialog (Chrome/Edge)
+  if ('showSaveFilePicker' in window) {
+    try {
+      const handle = await (window as Window & { showSaveFilePicker: (opts: unknown) => Promise<FileSystemFileHandle> }).showSaveFilePicker({
+        suggestedName: filename,
+        types: [{ description: 'RFQ Quote File', accept: { 'application/json': ['.json'] } }],
+      });
+      const writable = await handle.createWritable();
+      await writable.write(json);
+      await writable.close();
+      return;
+    } catch (e) {
+      if ((e as DOMException).name === 'AbortError') return; // user cancelled
+    }
+  }
+
+  // Fallback — automatic download (Firefox, Safari)
+  const blob = new Blob([json], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `rfq-${state.input.partNumber || 'export'}-${new Date().toISOString().slice(0, 10)}.json`;
+  a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
 }
